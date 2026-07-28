@@ -12,16 +12,20 @@
 <body class="bg-gray-100 font-sans text-gray-800">
 
     <div class="container mx-auto p-4 md:p-6 max-w-6xl">
-        <!-- 頂部標題與雙軌備份工具列 -->
+        <!-- 頂部標題與雲端一鍵同步工具列 -->
         <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-md gap-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold text-blue-900">📦 DJ社 對帳系統</h1>
-                <p class="text-xs text-gray-500 mt-1">經銷商帳務管理、雲端/本地雙軌備份與會計 401 報表平臺</p>
+                <p class="text-xs text-gray-500 mt-1">經銷商帳務管理、一鍵雲端同步與會計 401 報表平臺</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <button onclick="openGistModal()" class="bg-purple-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-purple-700 shadow">☁️ 雲端設定</button>
-                <button onclick="saveToCloud()" class="bg-emerald-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-emerald-700 shadow">☁️ 存雲端</button>
-                <button onclick="loadFromCloud()" class="bg-blue-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-blue-700 shadow">🔄 載雲端</button>
+                <!-- 內嵌雲端按鈕 (免重新設定) -->
+                <button onclick="saveToCloud()" class="bg-emerald-600 text-white text-xs px-4 py-2 rounded-lg font-bold hover:bg-emerald-700 shadow flex items-center space-x-1">
+                    <span>☁️ 儲存至雲端</span>
+                </button>
+                <button onclick="loadFromCloud()" class="bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold hover:bg-blue-700 shadow flex items-center space-x-1">
+                    <span>🔄 從雲端載入</span>
+                </button>
                 <span class="text-gray-300">|</span>
                 <button onclick="exportLocalBackup()" class="bg-amber-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-amber-700 shadow">💾 匯出本地</button>
                 <label class="bg-orange-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-orange-700 shadow cursor-pointer">
@@ -264,33 +268,6 @@
         </div>
     </div>
 
-    <!-- GitHub Gist 雲端設定彈跳視窗 -->
-    <div id="gistModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 relative">
-            <button onclick="closeGistModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold">✕</button>
-            <h2 class="text-xl font-bold mb-3 text-gray-800 border-b pb-2">☁️ GitHub Gist 雲端同步設定</h2>
-            <p class="text-xs text-gray-600 mb-4">
-                為了讓你在任何裝置都能同步資料，本系統支援免費的 GitHub Gist 雲端同步。<br>
-                1. 請至 GitHub 申請 Personal Access Token (勾選 gist 權限)。<br>
-                2. 建立一個 Secret Gist (檔案名稱 <code>dj_pos_data.json</code>)，複製網址上的 **Gist ID** 填入下方。
-            </p>
-            <div class="space-y-3 mb-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">GitHub Personal Access Token</label>
-                    <input type="password" id="gistToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="w-full border rounded p-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">GitHub Gist ID</label>
-                    <input type="text" id="gistId" placeholder="例如: 3a4b5c6d7e8f9..." class="w-full border rounded p-2 text-sm">
-                </div>
-            </div>
-            <div class="flex justify-end space-x-2">
-                <button onclick="closeGistModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-bold">取消</button>
-                <button onclick="saveGistConfig()" class="bg-purple-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-purple-700">儲存設定</button>
-            </div>
-        </div>
-    </div>
-
     <!-- 對帳單彈跳視窗 (Modal) -->
     <div id="statementModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4 overflow-y-auto">
         <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 relative max-h-[95vh] overflow-y-auto">
@@ -362,6 +339,15 @@
     </div>
 
     <script>
+        // ==========================================
+        // 🛠️ 雲端同步設定區 (直接寫死在此，換手機也不用重新設定)
+        // ==========================================
+        const CONFIG = {
+            GIST_TOKEN: "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", // 例: "ghp_abc123xyz..."
+            GIST_ID: "f49e3f13a914c5a77ed9d31c816cd3e6"               // 例: "3a4b5c6d7e8f9..."
+        };
+        // ==========================================
+
         let currentStatementStore = '';
 
         window.onload = function() {
@@ -446,32 +432,10 @@
             reader.readAsText(file);
         }
 
-        // --- GitHub Gist 雲端同步 ---
-        function openGistModal() {
-            document.getElementById('gistToken').value = localStorage.getItem('gist_token') || '';
-            document.getElementById('gistId').value = localStorage.getItem('gist_id') || '';
-            document.getElementById('gistModal').classList.remove('hidden');
-        }
-
-        function closeGistModal() {
-            document.getElementById('gistModal').classList.add('hidden');
-        }
-
-        function saveGistConfig() {
-            const token = document.getElementById('gistToken').value.trim();
-            const id = document.getElementById('gistId').value.trim();
-            localStorage.setItem('gist_token', token);
-            localStorage.setItem('gist_id', id);
-            alert('雲端設定儲存成功！');
-            closeGistModal();
-        }
-
+        // --- 內建金鑰雲端同步 (自動免設定) ---
         async function saveToCloud() {
-            const token = localStorage.getItem('gist_token');
-            const id = localStorage.getItem('gist_id');
-            if (!token || !id) {
-                alert('請先點擊上方「雲端設定」填入 GitHub Token 與 Gist ID！');
-                openGistModal();
+            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請在此貼上") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此貼上")) {
+                alert('請先修改程式碼內的 CONFIG 物件，填入你的 GitHub Token 與 Gist ID！');
                 return;
             }
 
@@ -483,10 +447,10 @@
             };
 
             try {
-                let response = await fetch(`https://api.github.com/gists/${id}`, {
+                let response = await fetch(`https://api.github.com/gists/${CONFIG.GIST_ID}`, {
                     method: 'PATCH',
                     headers: {
-                        'Authorization': `token ${token}`,
+                        'Authorization': `token ${CONFIG.GIST_TOKEN}`,
                         'Accept': 'application/vnd.github.v3+json',
                         'Content-Type': 'application/json'
                     },
@@ -502,7 +466,7 @@
                 if (response.ok) {
                     alert('成功儲存至雲端 (GitHub Gist)！');
                 } else {
-                    alert('雲端儲存失敗，請檢查 Token 與 Gist ID 是否正確！');
+                    alert('雲端儲存失敗，請檢查程式碼內的 Token 與 Gist ID 是否正確！');
                 }
             } catch (err) {
                 console.error(err);
@@ -511,18 +475,15 @@
         }
 
         async function loadFromCloud() {
-            const token = localStorage.getItem('gist_token');
-            const id = localStorage.getItem('gist_id');
-            if (!token || !id) {
-                alert('請先點擊上方「雲端設定」填入 GitHub Token 與 Gist ID！');
-                openGistModal();
+            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請在此貼上") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此貼上")) {
+                alert('請先修改程式碼內的 CONFIG 物件，填入你的 GitHub Token 與 Gist ID！');
                 return;
             }
 
             try {
-                let response = await fetch(`https://api.github.com/gists/${id}`, {
+                let response = await fetch(`https://api.github.com/gists/${CONFIG.GIST_ID}`, {
                     headers: {
-                        'Authorization': `token ${token}`,
+                        'Authorization': `token ${CONFIG.GIST_TOKEN}`,
                         'Accept': 'application/vnd.github.v3+json'
                     }
                 });
