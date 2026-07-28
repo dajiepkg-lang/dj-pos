@@ -19,7 +19,6 @@
                 <p class="text-xs text-gray-500 mt-1">經銷商帳務管理、一鍵雲端同步與會計 401 報表平臺</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <!-- 內嵌雲端按鈕 (免重新設定) -->
                 <button onclick="saveToCloud()" class="bg-emerald-600 text-white text-xs px-4 py-2 rounded-lg font-bold hover:bg-emerald-700 shadow flex items-center space-x-1">
                     <span>☁️ 儲存至雲端</span>
                 </button>
@@ -340,11 +339,11 @@
 
     <script>
         // ==========================================
-        // 🛠️ 雲端同步設定區 (直接寫死在此，換手機也不用重新設定)
+        // 🛠️ 雲端設定區 (請在此填入你的永久 Token 與 Gist ID)
         // ==========================================
         const CONFIG = {
-            GIST_TOKEN: "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", // 例: "ghp_abc123xyz..."
-            GIST_ID: "f49e3f13a914c5a77ed9d31c816cd3e6"               // 例: "3a4b5c6d7e8f9..."
+            GIST_TOKEN: "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", 
+            GIST_ID: "f49e3f13a914c5a77ed9d31c816cd3e6"       
         };
         // ==========================================
 
@@ -432,9 +431,9 @@
             reader.readAsText(file);
         }
 
-        // --- 內建金鑰雲端同步 (自動免設定) ---
+        // --- GitHub Gist 雲端同步 (自動免設定) ---
         async function saveToCloud() {
-            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請在此貼上") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此貼上")) {
+            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請在此填入") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此填入")) {
                 alert('請先修改程式碼內的 CONFIG 物件，填入你的 GitHub Token 與 Gist ID！');
                 return;
             }
@@ -466,7 +465,7 @@
                 if (response.ok) {
                     alert('成功儲存至雲端 (GitHub Gist)！');
                 } else {
-                    alert('雲端儲存失敗，請檢查程式碼內的 Token 與 Gist ID 是否正確！');
+                    alert('雲端儲存失敗，請檢查 Token 與 Gist ID 是否正確！');
                 }
             } catch (err) {
                 console.error(err);
@@ -475,7 +474,7 @@
         }
 
         async function loadFromCloud() {
-            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請在此貼上") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此貼上")) {
+            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請在此填入") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此填入")) {
                 alert('請先修改程式碼內的 CONFIG 物件，填入你的 GitHub Token 與 Gist ID！');
                 return;
             }
