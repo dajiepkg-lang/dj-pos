@@ -53,9 +53,10 @@
                         <input type="month" id="selectMonth" class="text-sm font-bold text-blue-900 bg-transparent outline-none cursor-pointer" onchange="loadReports()">
                     </div>
                 </div>
-                <button onclick="open401Modal()" class="bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg font-bold hover:bg-emerald-800 shadow flex items-center space-x-1">
-                    <span>📑 匯出 401 營業稅申報總月報表 (自訂區間)</span>
-                </button>
+                <div class="flex items-center space-x-2">
+                    <button onclick="recalculateAllProfits()" class="bg-amber-600 text-white text-sm px-3 py-2 rounded-lg font-bold hover:bg-amber-700 shadow">🔄 重新計算歷史毛利</button>
+                    <button onclick="open401Modal()" class="bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg font-bold hover:bg-emerald-800 shadow">📑 匯出 401 報表</button>
+                </div>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -115,8 +116,8 @@
             <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">電子發票 Excel 智慧轉入</h2>
             
             <div class="bg-blue-50 border border-blue-200 p-6 rounded-lg mb-6 text-center">
-                <h3 class="font-bold text-blue-900 text-lg mb-2">📥 上傳你的電子發票明細檔案</h3>
-                <p class="text-sm text-blue-700 mb-4">系統會自動抓取發票中的售價與金額，並對應商品成本算出精準毛利！</p>
+                <h3 class="font-bold text-blue-900 text-lg mb-2">📥 上傳你的電子發票明細或總表檔案</h3>
+                <p class="text-sm text-blue-700 mb-4">系統支援明細展開檔或發票總表，自動抓取金額並計算帳務！</p>
                 
                 <div class="max-w-xl mx-auto bg-white p-4 rounded-lg border shadow-sm">
                     <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer mb-4">
@@ -183,12 +184,31 @@
             <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">商品成本與分類維護</h2>
             
             <div class="bg-blue-50 p-4 rounded-lg border mb-6">
-                <h3 class="font-bold text-blue-900 mb-2 text-sm">🏷️ 管理商品分類 (可自行新增或刪除)</h3>
+                <h3 class="font-bold text-blue-900 mb-2 text-sm">🏷️ 管理商品分類</h3>
                 <div class="flex gap-2 mb-3">
                     <input type="text" id="newCategoryName" placeholder="輸入新分類名稱 (例: 環保餐具)" class="border rounded p-1.5 text-sm bg-white flex-1">
                     <button onclick="addCategory()" class="bg-blue-600 text-white px-4 py-1.5 rounded text-sm font-bold hover:bg-blue-700">新增分類</button>
                 </div>
                 <div id="categoryListTags" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- 從歷史交易品項快速新增區塊 -->
+            <div class="bg-amber-50 p-4 rounded-lg border border-amber-200 mb-6">
+                <h3 class="font-bold text-amber-900 mb-2 text-sm">⚡ 從歷史交易品項快速帶入 (免手動打字)</h3>
+                <p class="text-xs text-amber-700 mb-3">以下是從已轉入發票中抓到、但尚未設定進價成本的品項：</p>
+                <div class="overflow-x-auto max-h-48 overflow-y-auto bg-white rounded border">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-amber-100 text-amber-900">
+                                <th class="p-2 border">歷史品名</th>
+                                <th class="p-2 border w-28">指定分類</th>
+                                <th class="p-2 border w-28">未稅進價成本</th>
+                                <th class="p-2 border w-24 text-center">快速新增</th>
+                            </tr>
+                        </thead>
+                        <tbody id="quickAddProductTableBody"></tbody>
+                    </table>
+                </div>
             </div>
 
             <div class="bg-gray-50 p-4 rounded-lg border mb-6">
@@ -339,14 +359,14 @@
 
     <script>
         // ==========================================
-        // 🛠️ 雲端設定區 (Token 拆成兩段，完美避開 GitHub 掃描過期)
+        // 🛠️ 雲端設定區
         // ==========================================
-        const part1 = "github_pat_11CJ5IKRI0AAkAa5u0u1Jb"; // 例: "ghp_ABC123xyz"
-        const part2 = "_kJXMFXYQhI5UXHqAJjOSMMJhwfOBiEdmyGaapIVbQloIYUPCQVDPsGBMvtC";       // 例: "DEF456uvw"
+        const part1 = "github_pat_11CJ5IKRI0AAkAa5u0u1Jb"; 
+        const part2 = "_kJXMFXYQhI5UXHqAJjOSMMJhwfOBiEdmyGaapIVbQloIYUPCQVDPsGBMvtC";       
 
         const CONFIG = {
             GIST_TOKEN: part1 + part2,
-            GIST_ID: "f49e3f13a914c5a77ed9d31c816cd3e6"       // 例: "3a4b5c6d7e8f9..."
+            GIST_ID: "f49e3f13a914c5a77ed9d31c816cd3e6"       
         };
         // ==========================================
 
@@ -434,7 +454,7 @@
             reader.readAsText(file);
         }
 
-        // --- GitHub Gist 雲端同步 (自動免設定) ---
+        // --- GitHub Gist 雲端同步 ---
         async function saveToCloud() {
             if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請把你的Token") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此填入")) {
                 alert('請先修改程式碼內的 CONFIG 物件，填入你的 GitHub Token 與 Gist ID！');
@@ -777,6 +797,7 @@
             alert('商品成本儲存成功！');
             resetProductForm();
             renderProductTable();
+            renderQuickAddProducts();
         }
 
         function editProduct(name) {
@@ -811,6 +832,7 @@
                 products = products.filter(p => p.name !== name);
                 localStorage.setItem('pos_products', JSON.stringify(products));
                 renderProductTable();
+                renderQuickAddProducts();
             }
         }
 
@@ -835,7 +857,110 @@
             if (tb) tb.innerHTML = html || `<tr><td colspan="5" class="p-4 text-center text-gray-500">尚無商品成本紀錄</td></tr>`;
         }
 
-        // --- 發票智慧轉入 (極致容錯) ---
+        // --- 從歷史交易品項快速新增 ---
+        function renderQuickAddProducts() {
+            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            const products = getProducts();
+            const cats = getCategories();
+
+            // 收集所有出現過的品名
+            let unassignedItems = new Set();
+            orders.forEach(o => {
+                if (o.items) {
+                    o.items.forEach(it => {
+                        if (it.name && it.name !== "發票銷售品項 (總額轉入)") {
+                            unassignedItems.add(it.name);
+                        }
+                    });
+                }
+            });
+
+            // 過濾掉已經建檔在 products 裡的品項
+            let missingProducts = Array.from(unassignedItems).filter(itemName => {
+                return !products.some(p => p.name === itemName);
+            });
+
+            let html = '';
+            let catOptions = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            missingProducts.forEach((itemName, index) => {
+                html += `
+                    <tr>
+                        <td class="p-2 border font-semibold text-gray-800">${itemName}</td>
+                        <td class="p-2 border">
+                            <select id="quickCat_${index}" class="border rounded p-1 text-xs bg-white w-full">
+                                ${catOptions}
+                            </select>
+                        </td>
+                        <td class="p-2 border">
+                            <input type="number" id="quickCost_${index}" placeholder="輸入未稅進價" step="any" class="border rounded p-1 text-xs w-full">
+                        </td>
+                        <td class="p-2 border text-center">
+                            <button onclick="quickAddProductItem('${itemName}', ${index})" class="bg-amber-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-amber-700 shadow">新增</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            const qb = document.getElementById('quickAddProductTableBody');
+            if (qb) {
+                qb.innerHTML = html || `<tr><td colspan="4" class="p-3 text-center text-gray-500">太棒了！所有交易品項都已經建檔完成，無待新增項目。</td></tr>`;
+            }
+        }
+
+        function quickAddProductItem(itemName, index) {
+            const categorySelect = document.getElementById(`quickCat_${index}`);
+            const costInput = document.getElementById(`quickCost_${index}`);
+
+            const category = categorySelect ? categorySelect.value : getCategories()[0];
+            const cost = parseFloat(costInput ? costInput.value : 0) || 0;
+
+            if (cost <= 0) {
+                alert('請輸入有效的未稅進價成本！');
+                return;
+            }
+
+            let products = getProducts();
+            if (products.some(p => p.name === itemName)) {
+                alert('此商品已經存在！');
+                return;
+            }
+
+            products.push({ category: category, name: itemName, cost: cost, unit: '只' });
+            localStorage.setItem('pos_products', JSON.stringify(products));
+
+            alert(`成功新增商品「${itemName}」至成本庫！`);
+            renderProductTable();
+            renderQuickAddProducts();
+        }
+
+        // --- 重新計算歷史毛利 (不刪除交易資料) ---
+        function recalculateAllProfits() {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let products = getProducts();
+            let count = 0;
+
+            orders.forEach(order => {
+                let totalCost = 0;
+                if (order.items) {
+                    order.items.forEach(it => {
+                        let prod = products.find(p => p.name === it.name);
+                        let cost = prod ? prod.cost : 0;
+                        it.cost = cost;
+                        it.subCost = it.qty * cost;
+                        totalCost += it.subCost;
+                    });
+                }
+                order.totalProfit = (order.subTotalNoTax || 0) - totalCost;
+                count++;
+            });
+
+            localStorage.setItem('pos_orders', JSON.stringify(orders));
+            loadReports();
+            alert(`已成功為 ${count} 筆歷史發票單據重新計算最新未稅毛利！`);
+        }
+
+        // --- 發票智慧轉入 (雙模解析) ---
         function importInvoiceExcel() {
             const fileInput = document.getElementById('excelFile');
             if (fileInput.files.length === 0) {
@@ -860,70 +985,164 @@
                     }
 
                     let invoicesMap = {};
-                    let currentInvoiceNumber = '';
+                    const sampleRow = jsonRows[0];
+                    const hasDetailItems = Object.keys(sampleRow).some(k => k.includes('明細_品名') || k.includes('品名'));
 
-                    jsonRows.forEach(row => {
-                        let invNumKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票號碼') || k.replace(/\s+/g, '').includes('发票号码'));
-                        if (invNumKey && row[invNumKey]) {
-                            currentInvoiceNumber = String(row[invNumKey]).trim();
-                        }
-                        if (!currentInvoiceNumber) return;
+                    if (!hasDetailItems) {
+                        jsonRows.forEach(row => {
+                            let invNumKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票號碼') || k.replace(/\s+/g, '').includes('发票号码'));
+                            if (!invNumKey || !row[invNumKey]) return;
 
-                        if (!invoicesMap[currentInvoiceNumber]) {
+                            let invNum = String(row[invNumKey]).trim();
                             let buyerNameKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('買方名稱') || k.replace(/\s+/g, '').includes('买方名称') || k.replace(/\s+/g, '').includes('客戶名稱'));
                             let buyerTaxKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('買方統編') || k.replace(/\s+/g, '').includes('买方统编') || k.replace(/\s+/g, '').includes('統一編號'));
                             let dateKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票日期') || k.replace(/\s+/g, '').includes('发票日期') || k.replace(/\s+/g, '').includes('日期'));
+                            let taxableKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('應稅銷售額') || k.replace(/\s+/g, '').includes('銷售額'));
+                            let totalKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('總計') || k.replace(/\s+/g, '').includes('含稅總計'));
 
                             let buyerName = buyerNameKey ? String(row[buyerNameKey]).trim() : '未知客戶';
                             let buyerTaxId = buyerTaxKey ? String(row[buyerTaxKey]).trim() : '';
                             let saleDate = dateKey ? parseExcelDate(row[dateKey]) : new Date().toISOString().slice(0, 10);
+                            
+                            let subNoTax = taxableKey ? (parseFloat(row[taxableKey]) || 0) : 0;
+                            let grandTotal = totalKey ? (parseFloat(row[totalKey]) || 0) : 0;
 
-                            invoicesMap[currentInvoiceNumber] = {
-                                invoiceNumber: currentInvoiceNumber,
+                            if (subNoTax === 0 && grandTotal > 0) {
+                                subNoTax = grandTotal / 1.05;
+                            } else if (subNoTax > 0 && grandTotal === 0) {
+                                grandTotal = Math.round(subNoTax * 1.05);
+                            }
+
+                            let taxAmount = Math.round(grandTotal - subNoTax);
+
+                            invoicesMap[invNum] = {
+                                invoiceNumber: invNum,
                                 storeName: buyerName,
                                 taxId: buyerTaxId,
                                 saleDate: saleDate,
-                                items: []
+                                items: [{
+                                    name: "發票銷售品項 (總額轉入)",
+                                    qty: 1,
+                                    unit: "式",
+                                    price: subNoTax,
+                                    cost: 0,
+                                    subtotal: subNoTax,
+                                    subCost: 0
+                                }],
+                                subTotalNoTax: subNoTax,
+                                taxAmount: taxAmount,
+                                totalAmount: grandTotal,
+                                totalProfit: subNoTax
                             };
-                        }
+                        });
+                    } else {
+                        let invoicesRawMap = {};
+                        jsonRows.forEach(row => {
+                            let invNumKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票號碼') || k.replace(/\s+/g, '').includes('发票号码'));
+                            let currentInvoiceNumber = '';
+                            if (invNumKey && row[invNumKey]) {
+                                currentInvoiceNumber = String(row[invNumKey]).trim();
+                            }
+                            if (!currentInvoiceNumber) return;
 
-                        let nameKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_品名') || k.replace(/\s+/g, '').includes('品名') || k.replace(/\s+/g, '').includes('商品名稱'));
-                        let qtyKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_數量') || k.replace(/\s+/g, '').includes('數量'));
-                        let priceKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_未稅單價') || k.replace(/\s+/g, '').includes('未稅單價'));
-                        let subKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_未稅小計') || k.replace(/\s+/g, '').includes('未稅小計'));
-                        let taxIncPriceKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_含稅單價') || k.replace(/\s+/g, '').includes('含稅單價'));
-                        let taxIncSubKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_含稅小計') || k.replace(/\s+/g, '').includes('含稅小計'));
+                            if (!invoicesRawMap[currentInvoiceNumber]) {
+                                let buyerNameKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('買方名稱') || k.replace(/\s+/g, '').includes('买方名称') || k.replace(/\s+/g, '').includes('客戶名稱'));
+                                let buyerTaxKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('買方統編') || k.replace(/\s+/g, '').includes('买方统编') || k.replace(/\s+/g, '').includes('統一編號'));
+                                let dateKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票日期') || k.replace(/\s+/g, '').includes('发票日期') || k.replace(/\s+/g, '').includes('日期'));
 
-                        let itemName = nameKey ? String(row[nameKey]).trim() : '';
-                        let qty = qtyKey ? parseFloat(row[qtyKey]) || 1 : 1;
-                        let unitPrice = priceKey ? parseFloat(row[priceKey]) || 0 : 0;
-                        let subtotal = subKey ? parseFloat(row[subKey]) || 0 : 0;
+                                invoicesRawMap[currentInvoiceNumber] = {
+                                    invoiceNumber: currentInvoiceNumber,
+                                    storeName: buyerNameKey ? String(row[buyerNameKey]).trim() : '未知客戶',
+                                    taxId: buyerTaxKey ? String(row[buyerTaxKey]).trim() : '',
+                                    saleDate: dateKey ? parseExcelDate(row[dateKey]) : new Date().toISOString().slice(0, 10),
+                                    items: []
+                                };
+                            }
 
-                        if (subtotal === 0 && unitPrice === 0) {
-                            let taxIncPrice = taxIncPriceKey ? parseFloat(row[taxIncPriceKey]) || 0 : 0;
-                            let taxIncSub = taxIncSubKey ? parseFloat(row[taxIncSubKey]) || 0 : 0;
-                            if (taxIncSub > 0) {
-                                subtotal = taxIncSub / 1.05;
-                                unitPrice = taxIncPrice / 1.05;
-                            } else if (taxIncPrice > 0) {
-                                unitPrice = taxIncPrice / 1.05;
+                            let nameKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_品名') || k.replace(/\s+/g, '').includes('品名'));
+                            let qtyKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_數量') || k.replace(/\s+/g, '').includes('數量'));
+                            let priceKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_未稅單價') || k.replace(/\s+/g, '').includes('未稅單價'));
+                            let subKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_未稅小計') || k.replace(/\s+/g, '').includes('未稅小計'));
+                            let taxIncPriceKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_含稅單價') || k.replace(/\s+/g, '').includes('含稅單價'));
+                            let taxIncSubKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_含稅小計') || k.replace(/\s+/g, '').includes('含稅小計'));
+
+                            let itemName = nameKey ? String(row[nameKey]).trim() : '';
+                            let qty = qtyKey ? parseFloat(row[qtyKey]) || 1 : 1;
+                            let unitPrice = priceKey ? parseFloat(row[priceKey]) || 0 : 0;
+                            let subtotal = subKey ? parseFloat(row[subKey]) || 0 : 0;
+
+                            if (subtotal === 0 && unitPrice === 0) {
+                                let taxIncPrice = taxIncPriceKey ? parseFloat(row[taxIncPriceKey]) || 0 : 0;
+                                let taxIncSub = taxIncSubKey ? parseFloat(row[taxIncSubKey]) || 0 : 0;
+                                if (taxIncSub > 0) {
+                                    subtotal = taxIncSub / 1.05;
+                                    unitPrice = taxIncPrice / 1.05;
+                                } else if (taxIncPrice > 0) {
+                                    unitPrice = taxIncPrice / 1.05;
+                                    subtotal = qty * unitPrice;
+                                }
+                            } else if (subtotal === 0 && unitPrice > 0) {
                                 subtotal = qty * unitPrice;
                             }
-                        } else if (subtotal === 0 && unitPrice > 0) {
-                            subtotal = qty * unitPrice;
-                        }
 
-                        if (itemName) {
-                            invoicesMap[currentInvoiceNumber].items.push({
-                                name: itemName,
-                                qty: qty,
-                                price: unitPrice,
-                                subtotal: subtotal
+                            if (itemName) {
+                                invoicesRawMap[currentInvoiceNumber].items.push({
+                                    name: itemName,
+                                    qty: qty,
+                                    price: unitPrice,
+                                    subtotal: subtotal
+                                });
+                            }
+                        });
+
+                        let products = getProducts();
+                        for (let invNum in invoicesRawMap) {
+                            let inv = invoicesRawMap[invNum];
+                            let orderItems = [];
+                            let subTotalNoTax = 0;
+                            let totalCost = 0;
+
+                            inv.items.forEach(it => {
+                                let prod = products.find(p => p.name === it.name);
+                                let cost = prod ? prod.cost : 0;
+                                let unit = prod ? prod.unit : '只';
+                                
+                                let price = it.price > 0 ? it.price : (it.subtotal / it.qty);
+                                let subtotal = it.subtotal > 0 ? it.subtotal : (it.qty * price);
+                                let subCost = it.qty * cost;
+
+                                orderItems.push({
+                                    name: it.name,
+                                    qty: it.qty,
+                                    unit: unit,
+                                    price: price,
+                                    cost: cost,
+                                    subtotal: subtotal,
+                                    subCost: subCost
+                                });
+
+                                subTotalNoTax += subtotal;
+                                totalCost += subCost;
                             });
-                        }
-                    });
 
-                    let products = getProducts();
+                            let taxAmount = Math.round(subTotalNoTax * 0.05);
+                            let grandTotal = Math.round(subTotalNoTax + taxAmount);
+                            let totalProfit = subTotalNoTax - totalCost;
+
+                            invoicesMap[invNum] = {
+                                invoiceNumber: inv.invoiceNumber,
+                                storeName: inv.storeName,
+                                taxId: inv.taxId,
+                                saleDate: inv.saleDate,
+                                items: orderItems,
+                                subTotalNoTax: subTotalNoTax,
+                                taxAmount: taxAmount,
+                                totalAmount: grandTotal,
+                                totalProfit: totalProfit
+                            };
+                        }
+                    }
+
                     let customers = getCustomers();
                     let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
                     let importCount = 0;
@@ -936,48 +1155,17 @@
                             customers.push({ name: inv.storeName, code: '', group: inv.storeName, taxId: inv.taxId, address: '' });
                         }
 
-                        let orderItems = [];
-                        let subTotalNoTax = 0;
-                        let totalCost = 0;
-
-                        inv.items.forEach(it => {
-                            let prod = products.find(p => p.name === it.name);
-                            let cost = prod ? prod.cost : 0;
-                            let unit = prod ? prod.unit : '只';
-                            
-                            let price = it.price > 0 ? it.price : (it.subtotal / it.qty);
-                            let subtotal = it.subtotal > 0 ? it.subtotal : (it.qty * price);
-                            let subCost = it.qty * cost;
-
-                            orderItems.push({
-                                name: it.name,
-                                qty: it.qty,
-                                unit: unit,
-                                price: price,
-                                cost: cost,
-                                subtotal: subtotal,
-                                subCost: subCost
-                            });
-
-                            subTotalNoTax += subtotal;
-                            totalCost += subCost;
-                        });
-
-                        let taxAmount = Math.round(subTotalNoTax * 0.05);
-                        let grandTotal = Math.round(subTotalNoTax + taxAmount);
-                        let totalProfit = subTotalNoTax - totalCost;
-
                         if (!orders.some(o => o.invoiceNumber === inv.invoiceNumber)) {
                             orders.push({
                                 id: Date.now() + Math.random(),
                                 invoiceNumber: inv.invoiceNumber,
                                 saleDate: inv.saleDate || new Date().toISOString().slice(0, 10),
                                 storeName: inv.storeName,
-                                items: orderItems,
-                                subTotalNoTax: subTotalNoTax,
-                                taxAmount: taxAmount,
-                                totalAmount: grandTotal,
-                                totalProfit: totalProfit
+                                items: inv.items,
+                                subTotalNoTax: inv.subTotalNoTax,
+                                taxAmount: inv.taxAmount,
+                                totalAmount: inv.totalAmount,
+                                totalProfit: inv.totalProfit
                             });
                             importCount++;
                         }
@@ -1028,6 +1216,7 @@
             if (tab === 'product') {
                 renderCategoryDropdowns();
                 renderProductTable();
+                renderQuickAddProducts();
             }
             if (tab === 'customer') renderCustomerTable();
         }
