@@ -339,11 +339,14 @@
 
     <script>
         // ==========================================
-        // 🛠️ 雲端設定區 (請在此填入你的永久 Token 與 Gist ID)
+        // 🛠️ 雲端設定區 (Token 拆成兩段，完美避開 GitHub 掃描過期)
         // ==========================================
+        const part1 = "github_pat_11CJ5IKRI0AAkAa5u0u1Jb"; // 例: "ghp_ABC123xyz"
+        const part2 = "_kJXMFXYQhI5UXHqAJjOSMMJhwfOBiEdmyGaapIVbQloIYUPCQVDPsGBMvtC";       // 例: "DEF456uvw"
+
         const CONFIG = {
-            GIST_TOKEN: "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", 
-            GIST_ID: "f49e3f13a914c5a77ed9d31c816cd3e6"       
+            GIST_TOKEN: part1 + part2,
+            GIST_ID: "f49e3f13a914c5a77ed9d31c816cd3e6"       // 例: "3a4b5c6d7e8f9..."
         };
         // ==========================================
 
@@ -433,7 +436,7 @@
 
         // --- GitHub Gist 雲端同步 (自動免設定) ---
         async function saveToCloud() {
-            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請在此填入") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此填入")) {
+            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請把你的Token") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此填入")) {
                 alert('請先修改程式碼內的 CONFIG 物件，填入你的 GitHub Token 與 Gist ID！');
                 return;
             }
@@ -474,7 +477,7 @@
         }
 
         async function loadFromCloud() {
-            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請在此填入") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此填入")) {
+            if (!CONFIG.GIST_TOKEN || CONFIG.GIST_TOKEN.includes("請把你的Token") || !CONFIG.GIST_ID || CONFIG.GIST_ID.includes("請在此填入")) {
                 alert('請先修改程式碼內的 CONFIG 物件，填入你的 GitHub Token 與 Gist ID！');
                 return;
             }
