@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ社 對帳系統</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 SheetJS (xlsx) 讀取與匯出 Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-6 max-w-6xl">
+        <!-- 頂部標題與雙軌備份工具列 -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-md gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-blue-900">📦 DJ社 對帳系統</h1>
+                <p class="text-xs text-gray-500 mt-1">經銷商帳務管理、雲端/本地雙軌備份與會計 401 報表平臺</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="openGistModal()" class="bg-purple-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-purple-700 shadow">☁️ 雲端設定</button>
+                <button onclick="saveToCloud()" class="bg-emerald-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-emerald-700 shadow">☁️ 存雲端</button>
+                <button onclick="loadFromCloud()" class="bg-blue-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-blue-700 shadow">🔄 載雲端</button>
+                <span class="text-gray-300">|</span>
+                <button onclick="exportLocalBackup()" class="bg-amber-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-amber-700 shadow">💾 匯出本地</button>
+                <label class="bg-orange-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-orange-700 shadow cursor-pointer">
+                    <span>📂 載入本地</span>
+                    <input type="file" id="localFile" accept=".json" class="hidden" onchange="importLocalBackup(event)">
+                </label>
+            </div>
+        </div>
+
+        <!-- 功能頁籤切換 -->
+        <div class="flex justify-center space-x-2 md:space-x-3 mb-6 flex-wrap gap-y-2">
+            <button onclick="switchTab('report')" id="btn-report" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-blue-700">📊 總覽 / DJ社</button>
+            <button onclick="switchTab('orders')" id="btn-orders" class="bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400">📑 發票明細與單據管理</button>
+            <button onclick="switchTab('import')" id="btn-import" class="bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400">⚡ 電子發票 Excel 轉入</button>
+            <button onclick="switchTab('customer')" id="btn-customer" class="bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400">🏢 客戶與集團分店</button>
+            <button onclick="switchTab('product')" id="btn-product" class="bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400">📦 商品成本與分類</button>
+        </div>
+
+        <!-- 1. 總覽 / DJ社 分頁 -->
+        <div id="tab-report" class="bg-white p-6 rounded-xl shadow-md">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b pb-2 gap-4">
+                <div class="flex items-center space-x-3">
+                    <h2 class="text-xl font-bold text-gray-700">📊 DJ社 營運總覽與集團分析</h2>
+                    <div class="flex items-center space-x-1 bg-blue-50 px-3 py-1 rounded border border-blue-200">
+                        <span class="text-xs font-bold text-blue-800">選擇月份：</span>
+                        <input type="month" id="selectMonth" class="text-sm font-bold text-blue-900 bg-transparent outline-none cursor-pointer" onchange="loadReports()">
+                    </div>
+                </div>
+                <button onclick="open401Modal()" class="bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg font-bold hover:bg-emerald-800 shadow flex items-center space-x-1">
+                    <span>📑 匯出 401 營業稅申報總月報表 (自訂區間)</span>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r shadow-sm">
+                    <p class="text-gray-600 text-sm font-semibold">所選月份累積總銷售額 (含稅總額)：</p>
+                    <p id="monthlyRevenue" class="text-3xl font-extrabold text-blue-600 mt-1">NT$ 0</p>
+                </div>
+                <div class="bg-emerald-50 border-l-4 border-emerald-600 p-4 rounded-r shadow-sm">
+                    <p class="text-gray-600 text-sm font-semibold">所選月份累積預估未稅毛利 (利潤)：</p>
+                    <p id="monthlyProfit" class="text-3xl font-extrabold text-emerald-600 mt-1">NT$ 0</p>
+                </div>
+            </div>
+
+            <!-- 集團/母公司彙總表 -->
+            <h3 class="text-lg font-bold mb-2 text-gray-700">🏢 集團 / 母公司 總結算彙總</h3>
+            <div class="overflow-x-auto mb-6">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-blue-100 text-blue-900 text-sm">
+                            <th class="p-2.5 border">集團 / 母公司名稱</th>
+                            <th class="p-2.5 border">旗下分店數</th>
+                            <th class="p-2.5 border">本月總進貨次數</th>
+                            <th class="p-2.5 border">集團本月總應收金額 (含稅)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="groupSummaryTable"></tbody>
+                </table>
+            </div>
+
+            <!-- 各分店明細彙總表 -->
+            <h3 class="text-lg font-bold mb-2 text-gray-700">📍 各分店 本月結算明細與對帳單</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 text-gray-700 text-sm">
+                            <th class="p-2.5 border">分店名稱</th>
+                            <th class="p-2.5 border">所屬集團/母公司</th>
+                            <th class="p-2.5 border">本月進貨次數</th>
+                            <th class="p-2.5 border">本月應收總金額 (含稅)</th>
+                            <th class="p-2.5 border w-36 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="storeSummaryTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. 發票明細與單據管理分頁 -->
+        <div id="tab-orders" class="bg-white p-6 rounded-xl shadow-md hidden">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">📑 已轉入之電子發票單據紀錄</h2>
+            <p class="text-xs text-gray-500 mb-4">在此可隨時修改發票日期、更換所屬分店或刪除錯誤單據。</p>
+            <div id="orderList" class="space-y-4"></div>
+        </div>
+
+        <!-- 3. 電子發票智慧轉入專區 -->
+        <div id="tab-import" class="bg-white p-6 rounded-xl shadow-md hidden">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">電子發票 Excel 智慧轉入</h2>
+            
+            <div class="bg-blue-50 border border-blue-200 p-6 rounded-lg mb-6 text-center">
+                <h3 class="font-bold text-blue-900 text-lg mb-2">📥 上傳你的電子發票明細檔案</h3>
+                <p class="text-sm text-blue-700 mb-4">系統會自動抓取發票中的售價與金額，並對應商品成本算出精準毛利！</p>
+                
+                <div class="max-w-xl mx-auto bg-white p-4 rounded-lg border shadow-sm">
+                    <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer mb-4">
+                    <button onclick="importInvoiceExcel()" class="bg-emerald-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-emerald-700 shadow-md w-full">🚀 開始解析並轉入帳務紀錄</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. 客戶與集團分店維護區塊 -->
+        <div id="tab-customer" class="bg-white p-6 rounded-xl shadow-md hidden">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">客戶與集團分店資料維護</h2>
+            
+            <div class="bg-gray-50 p-4 rounded-lg border mb-6">
+                <h3 id="customerFormTitle" class="font-bold text-gray-700 mb-3">新增客戶 / 分店</h3>
+                <input type="hidden" id="editingCustomerOriginalName" value="">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">分店/客戶名稱</label>
+                        <input type="text" id="cName" placeholder="例：平山廠" class="w-full border rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">客戶代號 (自訂)</label>
+                        <input type="text" id="cCode" placeholder="例：20000002" class="w-full border rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">所屬集團 / 母公司</label>
+                        <input type="text" id="cGroup" placeholder="例：台灣卜蜂企業股份有限公司" class="w-full border rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">統一編號</label>
+                        <input type="text" id="cTaxId" placeholder="例：36514783" class="w-full border rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">地址/備註</label>
+                        <input type="text" id="cAddress" placeholder="例：彰化縣..." class="w-full border rounded p-2 text-sm">
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="saveCustomer()" id="customerSubmitBtn" class="bg-emerald-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-emerald-700">新增客戶至清單</button>
+                    <button onclick="resetCustomerForm()" id="customerCancelBtn" class="bg-gray-400 text-white px-4 py-2 rounded text-sm font-bold hidden hover:bg-gray-500">取消修改</button>
+                </div>
+            </div>
+
+            <h3 class="font-bold text-gray-700 mb-2">現有客戶與分店清單</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 text-gray-700 text-sm">
+                            <th class="p-2.5 border">分店/客戶名稱</th>
+                            <th class="p-2.5 border">客戶代號</th>
+                            <th class="p-2.5 border">所屬集團/母公司</th>
+                            <th class="p-2.5 border">統一編號</th>
+                            <th class="p-2.5 border">地址/備註</th>
+                            <th class="p-2.5 border w-32 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customerTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 5. 商品成本與分類維護區塊 -->
+        <div id="tab-product" class="bg-white p-6 rounded-xl shadow-md hidden">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">商品成本與分類維護</h2>
+            
+            <div class="bg-blue-50 p-4 rounded-lg border mb-6">
+                <h3 class="font-bold text-blue-900 mb-2 text-sm">🏷️ 管理商品分類 (可自行新增或刪除)</h3>
+                <div class="flex gap-2 mb-3">
+                    <input type="text" id="newCategoryName" placeholder="輸入新分類名稱 (例: 環保餐具)" class="border rounded p-1.5 text-sm bg-white flex-1">
+                    <button onclick="addCategory()" class="bg-blue-600 text-white px-4 py-1.5 rounded text-sm font-bold hover:bg-blue-700">新增分類</button>
+                </div>
+                <div id="categoryListTags" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg border mb-6">
+                <h3 id="productFormTitle" class="font-bold text-gray-700 mb-3">新增 / 編輯商品成本 (未稅進價)</h3>
+                <input type="hidden" id="editingProductOriginalName" value="">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">商品分類</label>
+                        <select id="pCategory" class="w-full border rounded p-2 text-sm bg-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">商品名稱 (需與發票品名相符)</label>
+                        <input type="text" id="pName" placeholder="例：APP一體小31高600入" class="w-full border rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">未稅進價成本 (NT$)</label>
+                        <input type="number" id="pCost" placeholder="0" step="any" class="w-full border rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">預設單位</label>
+                        <select id="pUnit" class="w-full border rounded p-2 text-sm bg-white">
+                            <option value="只" selected>只</option>
+                            <option value="件">件</option>
+                            <option value="袋">袋</option>
+                            <option value="盒">盒</option>
+                            <option value="包">包</option>
+                            <option value="箱">箱</option>
+                            <option value="個">個</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="saveProduct()" id="productSubmitBtn" class="bg-emerald-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-emerald-700">儲存商品成本</button>
+                    <button onclick="resetProductForm()" id="productCancelBtn" class="bg-gray-400 text-white px-4 py-2 rounded text-sm font-bold hidden hover:bg-gray-500">取消修改</button>
+                </div>
+            </div>
+
+            <h3 class="font-bold text-gray-700 mb-2">現有商品成本清單</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 text-gray-700 text-sm">
+                            <th class="p-2.5 border">分類</th>
+                            <th class="p-2.5 border">商品名稱</th>
+                            <th class="p-2.5 border">預設單位</th>
+                            <th class="p-2.5 border">未稅進價成本</th>
+                            <th class="p-2.5 border w-32 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 401 報表自訂區間彈跳視窗 -->
+    <div id="tax401Modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <button onclick="close401Modal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold">✕</button>
+            <h2 class="text-xl font-bold mb-3 text-gray-800 border-b pb-2">📑 匯出 401 營業稅申報報表</h2>
+            <p class="text-xs text-gray-600 mb-4">請選擇要統計與匯出申報的日期區間：</p>
+            <div class="space-y-3 mb-6">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">起始日期</label>
+                    <input type="date" id="taxStart" class="w-full border rounded p-2 text-sm bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">結束日期</label>
+                    <input type="date" id="taxEnd" class="w-full border rounded p-2 text-sm bg-white">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button onclick="close401Modal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-bold">取消</button>
+                <button onclick="confirmExport401()" class="bg-emerald-700 text-white px-5 py-2 rounded text-sm font-bold hover:bg-emerald-800">確認並下載 Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GitHub Gist 雲端設定彈跳視窗 -->
+    <div id="gistModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 relative">
+            <button onclick="closeGistModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold">✕</button>
+            <h2 class="text-xl font-bold mb-3 text-gray-800 border-b pb-2">☁️ GitHub Gist 雲端同步設定</h2>
+            <p class="text-xs text-gray-600 mb-4">
+                為了讓你在任何裝置都能同步資料，本系統支援免費的 GitHub Gist 雲端同步。<br>
+                1. 請至 GitHub 申請 Personal Access Token (勾選 gist 權限)。<br>
+                2. 建立一個 Secret Gist (檔案名稱 <code>dj_pos_data.json</code>)，複製網址上的 **Gist ID** 填入下方。
+            </p>
+            <div class="space-y-3 mb-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">GitHub Personal Access Token</label>
+                    <input type="password" id="gistToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="w-full border rounded p-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">GitHub Gist ID</label>
+                    <input type="text" id="gistId" placeholder="例如: 3a4b5c6d7e8f9..." class="w-full border rounded p-2 text-sm">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeGistModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-bold">取消</button>
+                <button onclick="saveGistConfig()" class="bg-purple-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-purple-700">儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 對帳單彈跳視窗 (Modal) -->
+    <div id="statementModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 relative max-h-[95vh] overflow-y-auto">
+            <button onclick="closeStatementModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold">✕</button>
+            
+            <h2 class="text-xl font-bold mb-4 text-gray-800 border-b pb-2">自訂關帳對帳區間與明細預覽</h2>
+            
+            <div class="bg-gray-50 p-4 rounded-lg border mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex items-center space-x-2 w-full md:w-auto">
+                    <label class="text-sm font-bold text-gray-700 whitespace-nowrap">起始日期：</label>
+                    <input type="date" id="startDate" class="border rounded p-1.5 text-sm bg-white" onchange="generateStatementData()">
+                </div>
+                <div class="flex items-center space-x-2 w-full md:w-auto">
+                    <label class="text-sm font-bold text-gray-700 whitespace-nowrap">結束日期：</label>
+                    <input type="date" id="endDate" class="border rounded p-1.5 text-sm bg-white" onchange="generateStatementData()">
+                </div>
+                <button onclick="generateStatementData()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700 w-full md:w-auto">重新計算對帳單</button>
+            </div>
+
+            <div id="statementPrintArea" class="bg-[#ffffd9] p-6 rounded border text-gray-900 font-sans shadow-inner">
+                <div class="flex justify-between items-start mb-4 text-xs">
+                    <div>
+                        <p>客戶簡稱：<span id="stShortName" class="font-bold"></span></p>
+                        <p>客戶名稱：<span id="stStoreName" class="font-bold"></span></p>
+                        <p>對帳日期：<span id="stDate"></span></p>
+                    </div>
+                    <div class="text-right">
+                        <p>客戶代號：<span id="stCustomerCode" class="font-bold">20000002</span></p>
+                        <p>統一編號：<span id="stTaxId"></span></p>
+                        <p>寄單起迄日期：1 ~ 30</p>
+                        <p>付款起迄日期：1 ~ 30</p>
+                    </div>
+                </div>
+
+                <h3 class="text-center text-lg font-bold underline mb-4 tracking-wider">客戶往來明細表</h3>
+
+                <div class="overflow-x-auto mb-4">
+                    <table class="w-full text-left border-collapse text-xs border border-gray-400 bg-white">
+                        <thead>
+                            <tr class="bg-[#e6e6b8] text-gray-900 text-center font-bold">
+                                <th class="p-2 border border-gray-400">交易日期</th>
+                                <th class="p-2 border border-gray-400">發票號碼</th>
+                                <th class="p-2 border border-gray-400">未稅金額</th>
+                                <th class="p-2 border border-gray-400">稅額</th>
+                                <th class="p-2 border border-gray-400">應稅金額</th>
+                                <th class="p-2 border border-gray-400">應收小計</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stItemTableBody"></tbody>
+                        <tfoot>
+                            <tr class="bg-[#e6e6b8] font-bold">
+                                <td class="p-2 border border-gray-400 text-center">加總金額</td>
+                                <td class="p-2 border border-gray-400"></td>
+                                <td id="stTotalNoTax" class="p-2 border border-gray-400 text-right">0</td>
+                                <td id="stTotalTax" class="p-2 border border-gray-400 text-right">0</td>
+                                <td id="stTotalTaxable" class="p-2 border border-gray-400 text-right">0</td>
+                                <td id="stGrandTotal" class="p-2 border border-gray-400 text-right text-blue-800">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-3 border-t pt-4">
+                <button onclick="closeStatementModal()" class="bg-gray-300 text-gray-700 px-5 py-2 rounded-lg font-bold hover:bg-gray-400">關閉</button>
+                <button onclick="printStatement()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow">🖨️ 列印 / 存成 PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStatementStore = '';
+
+        window.onload = function() {
+            initDefaultData();
+            
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const monthInput = document.getElementById('selectMonth');
+            if (monthInput) monthInput.value = `${yyyy}-${mm}`;
+
+            renderCustomerTable();
+            renderCategoryDropdowns();
+            renderProductTable();
+            loadReports();
+        };
+
+        function initDefaultData() {
+            if (!localStorage.getItem('pos_categories')) {
+                const defaultCategories = ['便當盒', '南北雜貨', '塑膠袋/包材', '手套/消耗品', '其他'];
+                localStorage.setItem('pos_categories', JSON.stringify(defaultCategories));
+            }
+            if (!localStorage.getItem('pos_products')) {
+                const defaultProducts = [
+                    { category: '便當盒', name: 'APP一體小31高600入', cost: 0.85, unit: '只' },
+                    { category: '便當盒', name: '402L四格500入310克', cost: 2, unit: '只' },
+                    { category: '便當盒', name: '502H-小五格500入52T', cost: 2.1, unit: '只' },
+                    { category: '便當盒', name: '502中5格310克400入歐風', cost: 2, unit: '只' },
+                    { category: '南北雜貨', name: '孟宗竹筷-566 (100*30包)', cost: 560, unit: '袋' },
+                    { category: '南北雜貨', name: '孟宗竹-566(100*30包)', cost: 560, unit: '袋' },
+                    { category: '其他', name: '台麗 洗衣粉 *10K', cost: 350, unit: '包' },
+                    { category: '其他', name: '衛生紙 10入', cost: 100, unit: '袋' }
+                ];
+                localStorage.setItem('pos_products', JSON.stringify(defaultProducts));
+            }
+            if (!localStorage.getItem('pos_customers')) {
+                const defaultCustomers = [
+                    { name: '六星便當平山團膳店', code: '20000001', group: '獨立客戶', taxId: '', address: '彰化縣...' },
+                    { name: '台灣卜蜂企業股份有限公司', code: '20000002', group: '台灣卜蜂企業股份有限公司', taxId: '36514783', address: '' }
+                ];
+                localStorage.setItem('pos_customers', JSON.stringify(defaultCustomers));
+            }
+        }
+
+        // --- 本地備份匯出與匯入 ---
+        function exportLocalBackup() {
+            const backupData = {
+                pos_categories: localStorage.getItem('pos_categories'),
+                pos_products: localStorage.getItem('pos_products'),
+                pos_customers: localStorage.getItem('pos_customers'),
+                pos_orders: localStorage.getItem('pos_orders'),
+                backupTime: new Date().toISOString()
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `dj_pos_local_backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importLocalBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.pos_categories) localStorage.setItem('pos_categories', data.pos_categories);
+                    if (data.pos_products) localStorage.setItem('pos_products', data.pos_products);
+                    if (data.pos_customers) localStorage.setItem('pos_customers', data.pos_customers);
+                    if (data.pos_orders) localStorage.setItem('pos_orders', data.pos_orders);
+                    
+                    alert('本地備份資料還原成功！');
+                    location.reload();
+                } catch (err) {
+                    console.error(err);
+                    alert('備份檔案格式錯誤！');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- GitHub Gist 雲端同步 ---
+        function openGistModal() {
+            document.getElementById('gistToken').value = localStorage.getItem('gist_token') || '';
+            document.getElementById('gistId').value = localStorage.getItem('gist_id') || '';
+            document.getElementById('gistModal').classList.remove('hidden');
+        }
+
+        function closeGistModal() {
+            document.getElementById('gistModal').classList.add('hidden');
+        }
+
+        function saveGistConfig() {
+            const token = document.getElementById('gistToken').value.trim();
+            const id = document.getElementById('gistId').value.trim();
+            localStorage.setItem('gist_token', token);
+            localStorage.setItem('gist_id', id);
+            alert('雲端設定儲存成功！');
+            closeGistModal();
+        }
+
+        async function saveToCloud() {
+            const token = localStorage.getItem('gist_token');
+            const id = localStorage.getItem('gist_id');
+            if (!token || !id) {
+                alert('請先點擊上方「雲端設定」填入 GitHub Token 與 Gist ID！');
+                openGistModal();
+                return;
+            }
+
+            const payload = {
+                pos_categories: localStorage.getItem('pos_categories'),
+                pos_products: localStorage.getItem('pos_products'),
+                pos_customers: localStorage.getItem('pos_customers'),
+                pos_orders: localStorage.getItem('pos_orders')
+            };
+
+            try {
+                let response = await fetch(`https://api.github.com/gists/${id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        files: {
+                            "dj_pos_data.json": {
+                                content: JSON.stringify(payload, null, 2)
+                            }
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    alert('成功儲存至雲端 (GitHub Gist)！');
+                } else {
+                    alert('雲端儲存失敗，請檢查 Token 與 Gist ID 是否正確！');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('連線雲端發生錯誤！');
+            }
+        }
+
+        async function loadFromCloud() {
+            const token = localStorage.getItem('gist_token');
+            const id = localStorage.getItem('gist_id');
+            if (!token || !id) {
+                alert('請先點擊上方「雲端設定」填入 GitHub Token 與 Gist ID！');
+                openGistModal();
+                return;
+            }
+
+            try {
+                let response = await fetch(`https://api.github.com/gists/${id}`, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+
+                if (response.ok) {
+                    let json = await response.json();
+                    let file = json.files["dj_pos_data.json"];
+                    if (file) {
+                        let data = JSON.parse(file.content);
+                        if (data.pos_categories) localStorage.setItem('pos_categories', data.pos_categories);
+                        if (data.pos_products) localStorage.setItem('pos_products', data.pos_products);
+                        if (data.pos_customers) localStorage.setItem('pos_customers', data.pos_customers);
+                        if (data.pos_orders) localStorage.setItem('pos_orders', data.pos_orders);
+
+                        alert('成功從雲端載入最新資料！');
+                        location.reload();
+                    } else {
+                        alert('雲端找不到對應的資料檔案！');
+                    }
+                } else {
+                    alert('載入失敗，請檢查權限設定！');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('連線雲端發生錯誤！');
+            }
+        }
+
+        // --- 401 營業稅申報總月報表 (自訂區間) ---
+        function open401Modal() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            document.getElementById('taxStart').value = `${year}-${month}-01`;
+            let lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+            document.getElementById('taxEnd').value = `${year}-${month}-${lastDay}`;
+            document.getElementById('tax401Modal').classList.remove('hidden');
+        }
+
+        function close401Modal() {
+            document.getElementById('tax401Modal').classList.add('hidden');
+        }
+
+        function confirmExport401() {
+            const start = document.getElementById('taxStart').value;
+            const end = document.getElementById('taxEnd').value;
+
+            if (!start || !end) {
+                alert('請選擇完整的起始與結束日期！');
+                return;
+            }
+
+            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let rangeOrders = orders.filter(o => o.saleDate >= start && o.saleDate <= end);
+
+            if (rangeOrders.length === 0) {
+                alert(`在 ${start} 至 ${end} 區間內無任何發票資料！`);
+                return;
+            }
+
+            let exportData = [];
+            let totalSales = 0;
+            let totalTax = 0;
+            let totalAmount = 0;
+
+            rangeOrders.sort((a, b) => new Date(a.saleDate) - new Date(b.saleDate));
+
+            rangeOrders.forEach((o, index) => {
+                let sales = o.subTotalNoTax || 0;
+                let tax = o.taxAmount || 0;
+                let amt = o.totalAmount || 0;
+
+                exportData.push({
+                    "序號": index + 1,
+                    "發票日期": o.saleDate,
+                    "發票號碼": o.invoiceNumber || "",
+                    "買方/分店名稱": o.storeName,
+                    "銷售額 (未稅)": sales,
+                    "營業稅額 (5%)": tax,
+                    "總計 (含稅)": amt
+                });
+
+                totalSales += sales;
+                totalTax += tax;
+                totalAmount += amt;
+            });
+
+            exportData.push({
+                "序號": "總計",
+                "發票日期": "",
+                "發票號碼": "",
+                "買方/分店名稱": "",
+                "銷售額 (未稅)": totalSales,
+                "營業稅額 (5%)": totalTax,
+                "總計 (含稅)": totalAmount
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "401營業稅申報明細");
+            XLSX.writeFile(workbook, `DJ社_${start}_至_${end}_401營業稅申報表.xlsx`);
+            close401Modal();
+        }
+
+        // --- 商品分類自由化 ---
+        function getCategories() {
+            return JSON.parse(localStorage.getItem('pos_categories')) || ['便當盒', '南北雜貨', '塑膠袋/包材', '手套/消耗品', '其他'];
+        }
+
+        function addCategory() {
+            const input = document.getElementById('newCategoryName');
+            const catName = input.value.trim();
+            if (!catName) {
+                alert('請輸入分類名稱！');
+                return;
+            }
+            let cats = getCategories();
+            if (cats.includes(catName)) {
+                alert('此分類已經存在！');
+                return;
+            }
+            cats.push(catName);
+            localStorage.setItem('pos_categories', JSON.stringify(cats));
+            input.value = '';
+            renderCategoryDropdowns();
+            alert('分類新增成功！');
+        }
+
+        function deleteCategory(catName) {
+            let cats = getCategories();
+            if (cats.length <= 1) {
+                alert('至少需保留一個分類！');
+                return;
+            }
+            if (confirm(`確定要刪除分類「${catName}」嗎？`)) {
+                cats = cats.filter(c => c !== catName);
+                localStorage.setItem('pos_categories', JSON.stringify(cats));
+                renderCategoryDropdowns();
+            }
+        }
+
+        function renderCategoryDropdowns() {
+            const cats = getCategories();
+            const select = document.getElementById('pCategory');
+            if (!select) return;
+            let options = '';
+            cats.forEach(c => {
+                options += `<option value="${c}">${c}</option>`;
+            });
+            select.innerHTML = options;
+
+            let tagsHtml = '';
+            cats.forEach(c => {
+                tagsHtml += `
+                    <span class="bg-white border px-3 py-1 rounded-full text-xs font-semibold flex items-center space-x-2 shadow-sm">
+                        <span>${c}</span>
+                        <button onclick="deleteCategory('${c}')" class="text-red-500 hover:text-red-700 font-bold ml-1">✕</button>
+                    </span>
+                `;
+            });
+            const tagContainer = document.getElementById('categoryListTags');
+            if (tagContainer) tagContainer.innerHTML = tagsHtml;
+        }
+
+        // --- 客戶與集團管理 ---
+        function getCustomers() {
+            return JSON.parse(localStorage.getItem('pos_customers')) || [];
+        }
+
+        function saveCustomer() {
+            const name = document.getElementById('cName').value.trim();
+            const code = document.getElementById('cCode').value.trim() || '';
+            const group = document.getElementById('cGroup').value.trim() || '獨立客戶';
+            const taxId = document.getElementById('cTaxId').value.trim();
+            const address = document.getElementById('cAddress').value.trim();
+            const originalName = document.getElementById('editingCustomerOriginalName').value;
+
+            if (!name) {
+                alert('請輸入分店/客戶名稱！');
+                return;
+            }
+
+            let customers = getCustomers();
+            if (originalName) {
+                const index = customers.findIndex(c => c.name === originalName);
+                if (index >= 0) customers[index] = { name, code, group, taxId, address };
+            } else {
+                if (customers.some(c => c.name === name)) {
+                    alert('此分店/客戶名稱已存在！');
+                    return;
+                }
+                customers.push({ name, code, group, taxId, address });
+            }
+
+            localStorage.setItem('pos_customers', JSON.stringify(customers));
+            alert('客戶資料儲存成功！');
+            resetCustomerForm();
+            renderCustomerTable();
+        }
+
+        function editCustomer(name) {
+            let customers = getCustomers();
+            const c = customers.find(item => item.name === name);
+            if (c) {
+                document.getElementById('cName').value = c.name;
+                document.getElementById('cCode').value = c.code || '';
+                document.getElementById('cGroup').value = c.group || '';
+                document.getElementById('cTaxId').value = c.taxId || '';
+                document.getElementById('cAddress').value = c.address || '';
+                document.getElementById('editingCustomerOriginalName').value = c.name;
+                document.getElementById('customerFormTitle').innerText = '修改客戶/分店資料';
+                document.getElementById('customerSubmitBtn').innerText = '儲存修改';
+                document.getElementById('customerCancelBtn').classList.remove('hidden');
+            }
+        }
+
+        function resetCustomerForm() {
+            document.getElementById('cName').value = '';
+            document.getElementById('cCode').value = '';
+            document.getElementById('cGroup').value = '';
+            document.getElementById('cTaxId').value = '';
+            document.getElementById('cAddress').value = '';
+            document.getElementById('editingCustomerOriginalName').value = '';
+            document.getElementById('customerFormTitle').innerText = '新增客戶 / 分店';
+            document.getElementById('customerSubmitBtn').innerText = '新增客戶至清單';
+            document.getElementById('customerCancelBtn').classList.add('hidden');
+        }
+
+        function deleteCustomer(name) {
+            if (confirm(`確定要刪除客戶「${name}」嗎？`)) {
+                let customers = getCustomers();
+                customers = customers.filter(c => c.name !== name);
+                localStorage.setItem('pos_customers', JSON.stringify(customers));
+                renderCustomerTable();
+            }
+        }
+
+        function renderCustomerTable() {
+            const customers = getCustomers();
+            let html = '';
+            customers.forEach(c => {
+                html += `
+                    <tr>
+                        <td class="p-2.5 border font-semibold">${c.name}</td>
+                        <td class="p-2.5 border text-gray-700 font-mono">${c.code || '-'}</td>
+                        <td class="p-2.5 border text-blue-800 font-medium">${c.group || '獨立客戶'}</td>
+                        <td class="p-2.5 border text-gray-600">${c.taxId || ''}</td>
+                        <td class="p-2.5 border text-gray-600">${c.address || ''}</td>
+                        <td class="p-2.5 border text-center space-x-2">
+                            <button onclick="editCustomer('${c.name}')" class="text-blue-500 hover:underline text-xs">修改</button>
+                            <button onclick="deleteCustomer('${c.name}')" class="text-red-500 hover:underline text-xs">刪除</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            const tb = document.getElementById('customerTableBody');
+            if (tb) tb.innerHTML = html || `<tr><td colspan="6" class="p-4 text-center text-gray-500">尚無客戶，請先新增</td></tr>`;
+        }
+
+        function getProducts() {
+            return JSON.parse(localStorage.getItem('pos_products')) || [];
+        }
+
+        function saveProduct() {
+            const category = document.getElementById('pCategory').value;
+            const name = document.getElementById('pName').value.trim();
+            const cost = parseFloat(document.getElementById('pCost').value) || 0;
+            const unit = document.getElementById('pUnit').value;
+            const originalName = document.getElementById('editingProductOriginalName').value;
+
+            if (!name) {
+                alert('請輸入商品名稱！');
+                return;
+            }
+
+            let products = getProducts();
+            if (originalName) {
+                const index = products.findIndex(p => p.name === originalName);
+                if (index >= 0) products[index] = { category, name, cost, unit };
+            } else {
+                if (products.some(p => p.name === name)) {
+                    alert('此商品名稱已存在！');
+                    return;
+                }
+                products.push({ category, name, cost, unit });
+            }
+
+            localStorage.setItem('pos_products', JSON.stringify(products));
+            alert('商品成本儲存成功！');
+            resetProductForm();
+            renderProductTable();
+        }
+
+        function editProduct(name) {
+            let products = getProducts();
+            const p = products.find(item => item.name === name);
+            if (p) {
+                document.getElementById('pCategory').value = p.category;
+                document.getElementById('pName').value = p.name;
+                document.getElementById('pCost').value = p.cost;
+                document.getElementById('pUnit').value = p.unit;
+                document.getElementById('editingProductOriginalName').value = p.name;
+                document.getElementById('productFormTitle').innerText = '修改商品成本';
+                document.getElementById('productSubmitBtn').innerText = '儲存修改';
+                document.getElementById('productCancelBtn').classList.remove('hidden');
+            }
+        }
+
+        function resetProductForm() {
+            document.getElementById('pCategory').value = getCategories()[0] || '便當盒';
+            document.getElementById('pName').value = '';
+            document.getElementById('pCost').value = '';
+            document.getElementById('pUnit').value = '只';
+            document.getElementById('editingProductOriginalName').value = '';
+            document.getElementById('productFormTitle').innerText = '新增 / 編輯商品成本 (未稅進價)';
+            document.getElementById('productSubmitBtn').innerText = '儲存商品成本';
+            document.getElementById('productCancelBtn').classList.add('hidden');
+        }
+
+        function deleteProduct(name) {
+            if (confirm(`確定要刪除商品「${name}」嗎？`)) {
+                let products = getProducts();
+                products = products.filter(p => p.name !== name);
+                localStorage.setItem('pos_products', JSON.stringify(products));
+                renderProductTable();
+            }
+        }
+
+        function renderProductTable() {
+            const products = getProducts();
+            let html = '';
+            products.forEach(p => {
+                html += `
+                    <tr>
+                        <td class="p-2.5 border font-medium text-gray-600">${p.category || '未分類'}</td>
+                        <td class="p-2.5 border font-semibold">${p.name}</td>
+                        <td class="p-2.5 border">${p.unit}</td>
+                        <td class="p-2.5 border text-gray-600">NT$ ${p.cost}</td>
+                        <td class="p-2.5 border text-center space-x-2">
+                            <button onclick="editProduct('${p.name}')" class="text-blue-500 hover:underline text-xs">修改</button>
+                            <button onclick="deleteProduct('${p.name}')" class="text-red-500 hover:underline text-xs">刪除</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            const tb = document.getElementById('productTableBody');
+            if (tb) tb.innerHTML = html || `<tr><td colspan="5" class="p-4 text-center text-gray-500">尚無商品成本紀錄</td></tr>`;
+        }
+
+        // --- 發票智慧轉入 (極致容錯) ---
+        function importInvoiceExcel() {
+            const fileInput = document.getElementById('excelFile');
+            if (fileInput.files.length === 0) {
+                alert('請先選擇要上傳的電子發票 Excel 檔案！');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonRows = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonRows.length === 0) {
+                        alert('上傳的檔案沒有資料！');
+                        return;
+                    }
+
+                    let invoicesMap = {};
+                    let currentInvoiceNumber = '';
+
+                    jsonRows.forEach(row => {
+                        let invNumKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票號碼') || k.replace(/\s+/g, '').includes('发票号码'));
+                        if (invNumKey && row[invNumKey]) {
+                            currentInvoiceNumber = String(row[invNumKey]).trim();
+                        }
+                        if (!currentInvoiceNumber) return;
+
+                        if (!invoicesMap[currentInvoiceNumber]) {
+                            let buyerNameKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('買方名稱') || k.replace(/\s+/g, '').includes('买方名称') || k.replace(/\s+/g, '').includes('客戶名稱'));
+                            let buyerTaxKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('買方統編') || k.replace(/\s+/g, '').includes('买方统编') || k.replace(/\s+/g, '').includes('統一編號'));
+                            let dateKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票日期') || k.replace(/\s+/g, '').includes('发票日期') || k.replace(/\s+/g, '').includes('日期'));
+
+                            let buyerName = buyerNameKey ? String(row[buyerNameKey]).trim() : '未知客戶';
+                            let buyerTaxId = buyerTaxKey ? String(row[buyerTaxKey]).trim() : '';
+                            let saleDate = dateKey ? parseExcelDate(row[dateKey]) : new Date().toISOString().slice(0, 10);
+
+                            invoicesMap[currentInvoiceNumber] = {
+                                invoiceNumber: currentInvoiceNumber,
+                                storeName: buyerName,
+                                taxId: buyerTaxId,
+                                saleDate: saleDate,
+                                items: []
+                            };
+                        }
+
+                        let nameKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_品名') || k.replace(/\s+/g, '').includes('品名') || k.replace(/\s+/g, '').includes('商品名稱'));
+                        let qtyKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_數量') || k.replace(/\s+/g, '').includes('數量'));
+                        let priceKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_未稅單價') || k.replace(/\s+/g, '').includes('未稅單價'));
+                        let subKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_未稅小計') || k.replace(/\s+/g, '').includes('未稅小計'));
+                        let taxIncPriceKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_含稅單價') || k.replace(/\s+/g, '').includes('含稅單價'));
+                        let taxIncSubKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('明細_含稅小計') || k.replace(/\s+/g, '').includes('含稅小計'));
+
+                        let itemName = nameKey ? String(row[nameKey]).trim() : '';
+                        let qty = qtyKey ? parseFloat(row[qtyKey]) || 1 : 1;
+                        let unitPrice = priceKey ? parseFloat(row[priceKey]) || 0 : 0;
+                        let subtotal = subKey ? parseFloat(row[subKey]) || 0 : 0;
+
+                        if (subtotal === 0 && unitPrice === 0) {
+                            let taxIncPrice = taxIncPriceKey ? parseFloat(row[taxIncPriceKey]) || 0 : 0;
+                            let taxIncSub = taxIncSubKey ? parseFloat(row[taxIncSubKey]) || 0 : 0;
+                            if (taxIncSub > 0) {
+                                subtotal = taxIncSub / 1.05;
+                                unitPrice = taxIncPrice / 1.05;
+                            } else if (taxIncPrice > 0) {
+                                unitPrice = taxIncPrice / 1.05;
+                                subtotal = qty * unitPrice;
+                            }
+                        } else if (subtotal === 0 && unitPrice > 0) {
+                            subtotal = qty * unitPrice;
+                        }
+
+                        if (itemName) {
+                            invoicesMap[currentInvoiceNumber].items.push({
+                                name: itemName,
+                                qty: qty,
+                                price: unitPrice,
+                                subtotal: subtotal
+                            });
+                        }
+                    });
+
+                    let products = getProducts();
+                    let customers = getCustomers();
+                    let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+                    let importCount = 0;
+
+                    for (let invNum in invoicesMap) {
+                        let inv = invoicesMap[invNum];
+                        if (!inv.storeName || inv.items.length === 0) continue;
+
+                        if (!customers.some(c => c.name === inv.storeName)) {
+                            customers.push({ name: inv.storeName, code: '', group: inv.storeName, taxId: inv.taxId, address: '' });
+                        }
+
+                        let orderItems = [];
+                        let subTotalNoTax = 0;
+                        let totalCost = 0;
+
+                        inv.items.forEach(it => {
+                            let prod = products.find(p => p.name === it.name);
+                            let cost = prod ? prod.cost : 0;
+                            let unit = prod ? prod.unit : '只';
+                            
+                            let price = it.price > 0 ? it.price : (it.subtotal / it.qty);
+                            let subtotal = it.subtotal > 0 ? it.subtotal : (it.qty * price);
+                            let subCost = it.qty * cost;
+
+                            orderItems.push({
+                                name: it.name,
+                                qty: it.qty,
+                                unit: unit,
+                                price: price,
+                                cost: cost,
+                                subtotal: subtotal,
+                                subCost: subCost
+                            });
+
+                            subTotalNoTax += subtotal;
+                            totalCost += subCost;
+                        });
+
+                        let taxAmount = Math.round(subTotalNoTax * 0.05);
+                        let grandTotal = Math.round(subTotalNoTax + taxAmount);
+                        let totalProfit = subTotalNoTax - totalCost;
+
+                        if (!orders.some(o => o.invoiceNumber === inv.invoiceNumber)) {
+                            orders.push({
+                                id: Date.now() + Math.random(),
+                                invoiceNumber: inv.invoiceNumber,
+                                saleDate: inv.saleDate || new Date().toISOString().slice(0, 10),
+                                storeName: inv.storeName,
+                                items: orderItems,
+                                subTotalNoTax: subTotalNoTax,
+                                taxAmount: taxAmount,
+                                totalAmount: grandTotal,
+                                totalProfit: totalProfit
+                            });
+                            importCount++;
+                        }
+                    }
+
+                    localStorage.setItem('pos_customers', JSON.stringify(customers));
+                    localStorage.setItem('pos_orders', JSON.stringify(orders));
+                    renderCustomerTable();
+
+                    alert(`成功轉入 ${importCount} 張電子發票！`);
+                    switchTab('report');
+                } catch (err) {
+                    console.error(err);
+                    alert('解析 Excel 檔案發生錯誤: ' + err.message);
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseExcelDate(val) {
+            if (!val) return new Date().toISOString().slice(0, 10);
+            let s = String(val).trim();
+            if (s.includes('/')) {
+                let parts = s.split('/');
+                if (parts.length === 3) {
+                    return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                }
+            }
+            return s.slice(0, 10);
+        }
+
+        function switchTab(tab) {
+            const tabs = ['report', 'orders', 'import', 'customer', 'product'];
+            tabs.forEach(t => {
+                let el = document.getElementById(`tab-${t}`);
+                let btn = document.getElementById(`btn-${t}`);
+                if (el) el.classList.add('hidden');
+                if (btn) btn.className = 'bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400';
+            });
+
+            let activeEl = document.getElementById(`tab-${tab}`);
+            let activeBtn = document.getElementById(`btn-${tab}`);
+            if (activeEl) activeEl.classList.remove('hidden');
+            if (activeBtn) activeBtn.className = 'bg-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-blue-700';
+
+            if (tab === 'report' || tab === 'orders') loadReports();
+            if (tab === 'product') {
+                renderCategoryDropdowns();
+                renderProductTable();
+            }
+            if (tab === 'customer') renderCustomerTable();
+        }
+
+        function loadReports() {
+            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            const customers = getCustomers();
+            
+            const monthInput = document.getElementById('selectMonth');
+            const selectedMonth = (monthInput && monthInput.value) ? monthInput.value : new Date().toISOString().slice(0, 7);
+            
+            const monthLabel = document.getElementById('currentMonthLabel');
+            if (monthLabel) monthLabel.innerText = `${selectedMonth.replace('-', '年')}月`;
+
+            let monthlyRevenue = 0;
+            let monthlyProfit = 0;
+            let storeSummary = {};
+            let groupSummary = {};
+            let orderCardsHtml = '';
+
+            orders.sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
+
+            orders.forEach(order => {
+                if (order.saleDate.startsWith(selectedMonth)) {
+                    monthlyRevenue += order.totalAmount;
+                    monthlyProfit += (order.totalProfit || 0);
+
+                    if (!storeSummary[order.storeName]) {
+                        storeSummary[order.storeName] = { count: 0, total: 0 };
+                    }
+                    storeSummary[order.storeName].count += 1;
+                    storeSummary[order.storeName].total += order.totalAmount;
+
+                    let custObj = customers.find(c => c.name === order.storeName);
+                    let groupName = custObj && custObj.group ? custObj.group : '獨立客戶';
+
+                    if (!groupSummary[groupName]) {
+                        groupSummary[groupName] = { count: 0, total: 0, stores: new Set() };
+                    }
+                    groupSummary[groupName].count += 1;
+                    groupSummary[groupName].total += order.totalAmount;
+                    groupSummary[groupName].stores.add(order.storeName);
+                }
+
+                let itemsListHtml = '';
+                order.items.forEach(item => {
+                    itemsListHtml += `
+                        <tr class="text-sm">
+                            <td class="p-1 border">${item.name}</td>
+                            <td class="p-1 border">${item.qty} ${item.unit}</td>
+                            <td class="p-1 border">NT$ ${item.price.toFixed(2)} (未稅)</td>
+                            <td class="p-1 border font-semibold">NT$ ${item.subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                });
+
+                let customerOptions = '';
+                customers.forEach(c => {
+                    let selected = c.name === order.storeName ? 'selected' : '';
+                    customerOptions += `<option value="${c.name}" ${selected}>${c.name}</option>`;
+                });
+
+                orderCardsHtml += `
+                    <div class="border rounded-lg p-4 bg-gray-50 shadow-sm">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 border-b pb-2 gap-2">
+                            <div class="flex items-center space-x-3">
+                                <span class="font-bold text-lg text-gray-800">${order.storeName}</span>
+                                <div class="text-sm text-gray-600 flex items-center space-x-1">
+                                    <span>日期:</span>
+                                    <input type="date" value="${order.saleDate}" onchange="updateOrderDate(${order.id}, this.value)" class="border rounded p-1 text-xs bg-white">
+                                </div>
+                                <span class="text-sm text-gray-500">發票號碼: ${order.invoiceNumber || '-'}</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs text-gray-600 font-semibold">更改分店:</span>
+                                <select onchange="updateOrderCustomer(${order.id}, this.value)" class="text-xs border rounded p-1 bg-white">
+                                    ${customerOptions}
+                                </select>
+                                <button onclick="deleteOrder(${order.id})" class="text-xs text-red-500 hover:underline ml-2">刪除單據</button>
+                            </div>
+                        </div>
+                        <table class="w-full text-left border-collapse bg-white rounded mb-2">
+                            <thead>
+                                <tr class="bg-gray-100 text-xs text-gray-500">
+                                    <th class="p-1 border">品名</th>
+                                    <th class="p-1 border">數量/單位</th>
+                                    <th class="p-1 border">未稅售價</th>
+                                    <th class="p-1 border">未稅小計</th>
+                                </tr>
+                            </thead>
+                            <tbody>${itemsListHtml}</tbody>
+                        </table>
+                        <div class="text-right text-xs text-gray-600 space-y-1">
+                            <div>銷售額(未稅): NT$ ${(order.subTotalNoTax || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} | 營業稅(5%): NT$ ${(order.taxAmount || 0).toLocaleString()}</div>
+                            <div class="text-base font-bold text-blue-600">含稅總計: NT$ ${order.totalAmount.toLocaleString()}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            let revEl = document.getElementById('monthlyRevenue');
+            let profEl = document.getElementById('monthlyProfit');
+            if (revEl) revEl.innerText = `NT$ ${monthlyRevenue.toLocaleString()}`;
+            if (profEl) profEl.innerText = `NT$ ${monthlyProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+            let groupHtml = '';
+            for (let gName in groupSummary) {
+                groupHtml += `
+                    <tr>
+                        <td class="p-2.5 border font-bold text-blue-900">${gName}</td>
+                        <td class="p-2.5 border">${groupSummary[gName].stores.size} 間分店</td>
+                        <td class="p-2.5 border">${groupSummary[gName].count} 次</td>
+                        <td class="p-2.5 border font-bold text-blue-600">NT$ ${groupSummary[gName].total.toLocaleString()}</td>
+                    </tr>
+                `;
+            }
+            let grpTb = document.getElementById('groupSummaryTable');
+            if (grpTb) grpTb.innerHTML = groupHtml || `<tr><td colspan="4" class="p-4 text-center text-gray-500">此月份尚無集團紀錄</td></tr>`;
+
+            let summaryHtml = '';
+            for (let store in storeSummary) {
+                let custObj = customers.find(c => c.name === store);
+                let gName = custObj && custObj.group ? custObj.group : '獨立客戶';
+                summaryHtml += `
+                    <tr>
+                        <td class="p-2.5 border font-semibold">${store}</td>
+                        <td class="p-2.5 border text-blue-800 font-medium">${gName}</td>
+                        <td class="p-2.5 border">${storeSummary[store].count} 次</td>
+                        <td class="p-2.5 border font-bold text-emerald-600">NT$ ${storeSummary[store].total.toLocaleString()}</td>
+                        <td class="p-2.5 border text-center">
+                            <button onclick="openStatementModal('${store}')" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded hover:bg-indigo-700 font-bold shadow">📄 產生對帳單</button>
+                        </td>
+                    </tr>
+                `;
+            }
+            let stoTb = document.getElementById('storeSummaryTable');
+            if (stoTb) stoTb.innerHTML = summaryHtml || `<tr><td colspan="5" class="p-4 text-center text-gray-500">此月份尚無單據紀錄</td></tr>`;
+            
+            let ordList = document.getElementById('orderList');
+            if (ordList) ordList.innerHTML = orderCardsHtml || `<p class="text-center text-gray-500 py-4">尚無轉入的出貨單據</p>`;
+        }
+
+        function updateOrderDate(orderId, newDate) {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let order = orders.find(o => o.id === orderId);
+            if (order) {
+                order.saleDate = newDate;
+                localStorage.setItem('pos_orders', JSON.stringify(orders));
+                loadReports();
+            }
+        }
+
+        function updateOrderCustomer(orderId, newStoreName) {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let order = orders.find(o => o.id === orderId);
+            if (order) {
+                order.storeName = newStoreName;
+                localStorage.setItem('pos_orders', JSON.stringify(orders));
+                loadReports();
+            }
+        }
+
+        function deleteOrder(id) {
+            if (confirm('確定要刪除這張轉入的單據嗎？')) {
+                let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+                orders = orders.filter(o => o.id !== id);
+                localStorage.setItem('pos_orders', JSON.stringify(orders));
+                loadReports();
+            }
+        }
+
+        // --- 產生對帳單與自訂區間 ---
+        function openStatementModal(storeName) {
+            currentStatementStore = storeName;
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            
+            document.getElementById('startDate').value = `${year}-${month}-01`;
+            let lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+            document.getElementById('endDate').value = `${year}-${month}-${lastDay}`;
+
+            generateStatementData();
+            document.getElementById('statementModal').classList.remove('hidden');
+        }
+
+        function generateStatementData() {
+            const storeName = currentStatementStore;
+            const customers = getCustomers();
+            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!startDate || !endDate) {
+                alert('請完整選擇起始與結束日期！');
+                return;
+            }
+
+            let custObj = customers.find(c => c.name === storeName) || {};
+
+            document.getElementById('stShortName').innerText = storeName.length > 8 ? storeName.slice(0, 8) : storeName;
+            document.getElementById('stStoreName').innerText = storeName;
+            document.getElementById('stCustomerCode').innerText = custObj.code || '20000002';
+            document.getElementById('stTaxId').innerText = custObj.taxId || '';
+            
+            let today = new Date();
+            document.getElementById('stDate').innerText = `${today.getFullYear()}.${String(today.getMonth()+1).padStart(2,'0')}.${String(today.getDate()).padStart(2,'0')}`;
+
+            let filteredOrders = orders.filter(o => {
+                return o.storeName === storeName && o.saleDate >= startDate && o.saleDate <= endDate;
+            });
+
+            filteredOrders.sort((a, b) => new Date(a.saleDate) - new Date(b.saleDate));
+
+            let tableHtml = '';
+            let totalNoTax = 0;
+            let totalTax = 0;
+            let totalTaxable = 0;
+            let grandTotal = 0;
+
+            if (filteredOrders.length === 0) {
+                tableHtml = `<tr><td colspan="6" class="p-4 text-center text-gray-500 border border-gray-400">此區間無交易紀錄</td></tr>`;
+            } else {
+                filteredOrders.forEach(o => {
+                    let dParts = o.saleDate.split('-');
+                    let dateStr = `${dParts[0]}.${dParts[1]}.${dParts[2]}`;
+                    
+                    let noTax = o.subTotalNoTax || 0;
+                    let tax = o.taxAmount || 0;
+                    let taxable = noTax;
+                    let subTotal = o.totalAmount || 0;
+
+                    tableHtml += `
+                        <tr class="hover:bg-gray-50 text-center">
+                            <td class="p-2 border border-gray-400">${dateStr}</td>
+                            <td class="p-2 border border-gray-400">${o.invoiceNumber || '-'}</td>
+                            <td class="p-2 border border-gray-400 text-right">NT$ ${noTax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="p-2 border border-gray-400 text-right">NT$ ${tax.toLocaleString()}</td>
+                            <td class="p-2 border border-gray-400 text-right">NT$ ${taxable.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="p-2 border border-gray-400 text-right font-bold">NT$ ${subTotal.toLocaleString()}</td>
+                        </tr>
+                    `;
+
+                    totalNoTax += noTax;
+                    totalTax += tax;
+                    totalTaxable += taxable;
+                    grandTotal += subTotal;
+                });
+            }
+
+            document.getElementById('stItemTableBody').innerHTML = tableHtml;
+            document.getElementById('stTotalNoTax').innerText = `NT$ ${totalNoTax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('stTotalTax').innerText = `NT$ ${totalTax.toLocaleString()}`;
+            document.getElementById('stTotalTaxable').innerText = `NT$ ${totalTaxable.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('stGrandTotal').innerText = `NT$ ${grandTotal.toLocaleString()}`;
+        }
+
+        function closeStatementModal() {
+            document.getElementById('statementModal').classList.add('hidden');
+        }
+
+        function printStatement() {
+            let printContents = document.getElementById('statementPrintArea').innerHTML;
+            let originalContents = document.body.innerHTML;
+
+            document.body.innerHTML = `<div style="padding: 20px; background-color: #ffffd9;">${printContents}</div>`;
+            window.print();
+            document.body.innerHTML = originalContents;
+            location.reload();
+        }
+    </script>
+</body>
+</html>
