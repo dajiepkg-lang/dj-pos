@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ社 資金預測與營運帳務管理系統</title>
+    <title>DJ社</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
@@ -28,8 +28,7 @@
         <!-- 頂部標題與工具列 -->
         <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-md gap-4">
             <div>
-                <h1 class="text-2xl md:text-3xl font-bold text-blue-900">📦 DJ社 資金預測與營運對帳全功能系統</h1>
-                <p class="text-xs text-gray-500 mt-1">整合收支狀況預測、現金水位關帳、POS 帳務管理與電子發票轉入</p>
+                <h1 class="text-2xl md:text-3xl font-bold text-blue-900">📦 DJ社</h1>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <button onclick="saveToCloud()" class="bg-emerald-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-emerald-700 shadow flex items-center space-x-1">
@@ -47,10 +46,10 @@
             </div>
         </div>
 
-        <!-- 主頁籤切換 (順序：1. 收支狀況預測 2. 現金水位與關帳) -->
+        <!-- 主頁籤切換 -->
         <div class="flex justify-center space-x-2 md:space-x-3 mb-6 flex-wrap gap-y-2">
-            <button onclick="switchTab('report')" id="btn-report" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold shadow">📊 第一頁：收支狀況預測</button>
-            <button onclick="switchTab('cashflow')" id="btn-cashflow" class="bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400">📈 第二頁：現金水位與關帳</button>
+            <button onclick="switchTab('report')" id="btn-report" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold shadow">📊 收支狀況預測</button>
+            <button onclick="switchTab('cashflow')" id="btn-cashflow" class="bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400">📈 現金水位與關帳</button>
             <button onclick="switchTab('orders')" id="btn-orders" class="bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400">📑 發票單據管理</button>
             <button onclick="switchTab('import')" id="btn-import" class="bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400">⚡ 電子發票轉入</button>
             <button onclick="switchTab('customer')" id="btn-customer" class="bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400">🏢 客戶與集團分店</button>
@@ -60,7 +59,7 @@
         <!-- 近 7 日待繳預警 -->
         <div id="upcoming-alert" class="bg-red-50 border-l-4 border-red-600 p-4 rounded-lg mb-6 hidden shadow-sm"></div>
 
-        <!-- ================= 1. 第一頁：收支狀況預測 (月報表與損益預估) ================= -->
+        <!-- ================= 1. 收支狀況預測 (月報表與損益預估) ================= -->
         <div id="tab-report" class="bg-white p-6 rounded-xl shadow-md border space-y-6">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 gap-4">
                 <div class="flex items-center space-x-3">
@@ -133,9 +132,8 @@
             </div>
         </div>
 
-        <!-- ================= 2. 第二頁：現金水位與關帳對帳 ================= -->
+        <!-- ================= 2. 現金水位與關帳對帳 ================= -->
         <div id="tab-cashflow" class="space-y-6 hidden">
-            <!-- 資金對帳與調度區 -->
             <div class="bg-white p-6 rounded-xl shadow-md border">
                 <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                     <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 flex-1 w-full">
@@ -173,7 +171,6 @@
                 </div>
             </div>
 
-            <!-- 表單與圖表網格 -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <!-- 左側：排程新增表單 -->
                 <div class="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border self-start">
@@ -476,7 +473,6 @@
             GIST_ID: "f49e3f13a914c5a77ed9d31c816cd3e6"
         };
 
-        // 動態拼合 Token
         function getAuthToken() {
             return KEY_PARTS.PART1 + KEY_PARTS.PART2;
         }
@@ -558,7 +554,7 @@
             document.getElementById('recurring-form').style.display = mode === 'recurring' ? 'block' : 'none';
         }
 
-        // --- 資金水位系統核心 (第二頁) ---
+        // --- 資金水位系統核心 ---
         function saveAndUpdateCashflow() {
             anchorDate = document.getElementById('anchor-date').value;
             anchorBank = parseFloat(document.getElementById('anchor-bank').value) || 0;
@@ -733,7 +729,7 @@
             } else alertDiv.classList.add('hidden');
         }
 
-        // --- 電子發票轉入 & POS 邏輯 (第一頁收支預測) ---
+        // --- 電子發票轉入 & POS 邏輯 ---
         function importInvoiceExcel() {
             const fileInput = document.getElementById('excelFile');
             if (fileInput.files.length === 0) return alert('請選擇 Excel 檔案！');
@@ -856,8 +852,60 @@
                 stoTb.innerHTML += `<tr class="border-b"><td class="p-2.5 font-semibold">${s}</td><td class="p-2.5 text-blue-800">${cust ? cust.group : '獨立客戶'}</td><td class="p-2.5">${storeSummary[s].count} 次</td><td class="p-2.5 font-bold text-emerald-600">NT$ ${storeSummary[s].total.toLocaleString()}</td><td class="p-2.5 text-center"><button onclick="openStatementModal('${s}')" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded font-bold">📄 產生對帳單</button></td></tr>`;
             }
 
-            // 月份長條圖
             renderReportChart(orders);
+
+            // 渲染發票單據管理區塊
+            const orderListDiv = document.getElementById('orderList');
+            if (orderListDiv) {
+                orderListDiv.innerHTML = '';
+                if (orders.length === 0) {
+                    orderListDiv.innerHTML = '<p class="text-gray-500 text-sm">目前尚無轉入之發票單據。</p>';
+                } else {
+                    const sortedOrders = [...orders].sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
+                    sortedOrders.forEach(o => {
+                        let itemsHtml = o.items.map(it => `
+                            <tr class="border-b text-xs">
+                                <td class="p-1 text-gray-700">${it.name}</td>
+                                <td class="p-1 text-center">${it.qty} ${it.unit || ''}</td>
+                                <td class="p-1 text-right">$${it.price ? it.price.toLocaleString() : 0}</td>
+                                <td class="p-1 text-right font-medium">$${it.subtotal ? it.subtotal.toLocaleString() : 0}</td>
+                            </tr>
+                        `).join('');
+
+                        orderListDiv.innerHTML += `
+                            <div class="border rounded-lg p-4 bg-gray-50 shadow-sm space-y-3">
+                                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
+                                    <div>
+                                        <span class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded font-bold mr-2">${o.invoiceNumber || '無號碼'}</span>
+                                        <span class="font-bold text-gray-800 text-base">${o.storeName}</span>
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        交易日期：<span class="font-semibold text-gray-700">${o.saleDate}</span>
+                                    </div>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left bg-white rounded border">
+                                        <thead>
+                                            <tr class="bg-gray-100 text-gray-600 text-xs">
+                                                <th class="p-1.5">品名</th>
+                                                <th class="p-1.5 text-center w-16">數量</th>
+                                                <th class="p-1.5 text-right w-20">單價</th>
+                                                <th class="p-1.5 text-right w-24">小計</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>${itemsHtml}</tbody>
+                                    </table>
+                                </div>
+                                <div class="flex justify-end gap-4 text-xs pt-1 border-t font-semibold text-gray-700">
+                                    <span>銷售額 (未稅)：$${(o.subTotalNoTax || 0).toLocaleString()}</span>
+                                    <span>稅額：$${(o.taxAmount || 0).toLocaleString()}</span>
+                                    <span class="text-blue-800 font-bold text-sm">總計 (含稅)：$${(o.totalAmount || 0).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            }
         }
 
         function renderReportChart(orders) {
@@ -945,7 +993,7 @@
             renderProductTable();
         }
 
-        // --- 雲端 (拆分Token拼合) 與本地備份 ---
+        // --- 雲端與本地備份 ---
         async function saveToCloud() {
             const payload = {
                 cf_single_v11: localStorage.getItem('cf_single_v11'),
