@@ -544,7 +544,6 @@
             let start, end;
 
             if (type === 'closing') {
-                // 上月26 ~ 本月25
                 let currMonth = today.getMonth();
                 let currYear = today.getFullYear();
                 
@@ -553,7 +552,6 @@
                 start = getLocalDateString(sDate);
                 end = getLocalDateString(eDate);
             } else if (type === 'natural') {
-                // 當月 1 號 ~ 月底
                 let sDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 let eDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
                 start = getLocalDateString(sDate);
@@ -580,6 +578,7 @@
 
             if (tab === 'cashflow') updateCashflowSystem();
             if (tab === 'report' || tab === 'orders') loadPOSReports();
+            if (tab === 'product') renderProductTable();
         }
 
         function switchSubTab(mode) {
@@ -769,24 +768,22 @@
             if (!saleDateStr) return '';
             let parts = saleDateStr.split('-');
             let year = parseInt(parts[0], 10);
-            let month = parseInt(parts[1], 10) - 1; // 0-indexed
+            let month = parseInt(parts[1], 10) - 1;
             let day = parseInt(parts[2], 10);
 
             let targetDate = new Date(year, month, 20);
             if (day <= 25) {
-                // 1~25號 ➔ 次月 20 號
                 targetDate.setMonth(targetDate.getMonth() + 1);
             } else {
-                // 26號以後 ➔ 大後月 (隔兩個月) 20 號
                 targetDate.setMonth(targetDate.getMonth() + 2);
             }
             return getLocalDateString(targetDate);
         }
 
-        // --- 電子發票轉入 & POS 邏輯 ---
+        // --- 電子發票轉入 & POS 邏輯 (強化版：自動匯入與彈窗提示) ---
         function importInvoiceExcel() {
             const fileInput = document.getElementById('excelFile');
-            if (fileInput.files.length === 0) return alert('請選擇 Excel 檔案！');
+            if (!fileInput || fileInput.files.length === 0) return alert('請選擇 Excel 檔案！');
 
             const file = fileInput.files[0];
             const reader = new FileReader();
@@ -835,7 +832,7 @@
                     let defaultCategory = categories[0] || '其他';
                     
                     let importCount = 0;
-                    let newProductsAdded = []; // 紀錄新自動新增的商品名稱
+                    let newProductsAdded = []; 
 
                     for (let invNum in invoicesMap) {
                         let inv = invoicesMap[invNum];
@@ -849,7 +846,7 @@
                         inv.items.forEach(it => {
                             let prod = products.find(p => p.name === it.name);
                             
-                            // 💡 自動偵測：若產品不存在，自動新增至商品清單中（預設成本為 0），方便日後補填
+                            // 💡 自動捕捉未建立的新商品
                             if (!prod) {
                                 prod = { category: defaultCategory, name: it.name, cost: 0, unit: '只' };
                                 products.push(prod);
@@ -865,34 +862,42 @@
                         let taxAmount = Math.round(subTotalNoTax * 0.05);
                         let totalAmount = Math.round(subTotalNoTax + taxAmount);
 
-                        // 計算資金入帳日（次月20號/大後月20號）
                         let expectedIncomeDate = calculateIncomeDate(inv.saleDate);
 
                         orders.push({ id: Date.now() + Math.random(), invoiceNumber: inv.invoiceNumber, saleDate: inv.saleDate, expectedIncomeDate, storeName: inv.storeName, items: orderItems, subTotalNoTax, taxAmount, totalAmount, totalProfit: subTotalNoTax - totalCost });
                         
-                        // 金融排程使用「預計入帳日」
                         singleItems.push({ id: Date.now() + Math.random(), date: expectedIncomeDate, name: `[發票入帳] ${inv.storeName} (${inv.invoiceNumber})`, type: 'income', tag: '銷貨收入', amt: totalAmount, invoiceNumber: inv.invoiceNumber });
                         importCount++;
                     }
 
                     localStorage.setItem('pos_customers', JSON.stringify(customers));
-                    localStorage.setItem('pos_products', JSON.stringify(products)); // 更新商品資料庫
+                    localStorage.setItem('pos_products', JSON.stringify(products)); 
                     localStorage.setItem('pos_orders', JSON.stringify(orders));
                     
-                    renderProductTable(); // 重新渲染商品表格
                     saveAndUpdateCashflow();
+                    renderProductTable();
 
-                    // 💡 如果有偵測到新商品，自動提示並跳轉到「商品成本與分類」頁面
+                    // 💡 新商品引導邏輯
                     if (newProductsAdded.length > 0) {
-                        alert(`成功轉入 ${importCount} 張發票！\n\n⚠️ 系統自動偵測並新增了 ${newProductsAdded.length} 項新商品：\n${newProductsAdded.slice(0, 5).join('、')}${newProductsAdded.length > 5 ? '...等' : ''}\n\n已為您切換至「商品成本與分類」頁面，請記得設定這些商品的分類與未稅進價成本！`);
+                        alert(`成功轉入 ${importCount} 張發票！\n\n⚠️ 發現 ${newProductsAdded.length} 項全新商品已自動加入清單：\n${newProductsAdded.slice(0, 3).join('、')}${newProductsAdded.length > 3 ? '...等' : ''}\n\n已自動為您切換至「商品成本與分類」頁面，請記得補填未稅進價成本！`);
                         switchTab('product');
+                        
+                        // 自動將第一筆新商品帶入編輯框方便直接編輯
+                        let firstNew = products.find(p => p.name === newProductsAdded[0]);
+                        if (firstNew) {
+                            document.getElementById('pName').value = firstNew.name;
+                            document.getElementById('pCategory').value = firstNew.category;
+                            document.getElementById('pUnit').value = firstNew.unit;
+                            document.getElementById('pCost').value = '';
+                            document.getElementById('pCost').focus();
+                        }
                     } else {
-                        alert(`成功轉入 ${importCount} 張發票！\n資金排程已自動為您排入次月/次次月 20 號之入帳。`);
+                        alert(`成功轉入 ${importCount} 張發票！\n資金排程已自動排入次月/大後月 20 號之入帳。`);
                         switchTab('report');
                     }
                 } catch (err) { alert('解析 Excel 失敗：' + err.message); }
             };
-            reader.readAsBuffer(file);
+            reader.readAsArrayBuffer(file);
         }
 
         // 修改發票店家名稱
@@ -936,7 +941,6 @@
             let monthlyRevenue = 0, monthlyProfit = 0, storeSummary = {}, groupSummary = {};
 
             orders.forEach(o => {
-                // 以區間比對
                 if ((!startDate || o.saleDate >= startDate) && (!endDate || o.saleDate <= endDate)) {
                     monthlyRevenue += o.totalAmount;
                     monthlyProfit += (o.totalProfit || 0);
@@ -967,7 +971,6 @@
 
             renderReportChart(orders, startDate, endDate);
 
-            // 渲染發票單據管理區塊
             const orderListDiv = document.getElementById('orderList');
             if (orderListDiv) {
                 orderListDiv.innerHTML = '';
@@ -985,7 +988,6 @@
                             </tr>
                         `).join('');
 
-                        // 動態計算入帳日期，解決舊資料或硬編碼預設值問題
                         let incomeDateDisplay = o.expectedIncomeDate || calculateIncomeDate(o.saleDate);
 
                         orderListDiv.innerHTML += `
@@ -1072,11 +1074,36 @@
         function renderProductTable() {
             let products = JSON.parse(localStorage.getItem('pos_products')) || [];
             let tb = document.getElementById('productTableBody');
+            if (!tb) return;
+
             tb.innerHTML = products.map(p => {
-                // 💡 如果成本為 0，加紅字標示方便提醒使用者補充進價成本
-                let costDisplay = p.cost === 0 ? `<span class="text-red-600 font-bold">NT$ 0 (未填)</span>` : `NT$ ${p.cost}`;
-                return `<tr class="border-b"><td class="p-2.5">${p.category}</td><td class="p-2.5 font-semibold">${p.name}</td><td class="p-2.5">${p.unit}</td><td class="p-2.5">${costDisplay}</td><td class="p-2.5 text-center"><button onclick="deleteProduct('${p.name}')" class="text-red-500 hover:underline text-xs">刪除</button></td></tr>`;
+                let costDisplay = (!p.cost || p.cost === 0) 
+                    ? `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-bold">NT$ 0 (未填成本)</span>` 
+                    : `NT$ ${p.cost}`;
+                
+                return `<tr class="border-b hover:bg-gray-50">
+                    <td class="p-2.5">${p.category}</td>
+                    <td class="p-2.5 font-semibold">${p.name}</td>
+                    <td class="p-2.5">${p.unit}</td>
+                    <td class="p-2.5">${costDisplay}</td>
+                    <td class="p-2.5 text-center">
+                        <button onclick="editProduct('${p.name}')" class="text-blue-600 hover:underline text-xs mr-2">編輯</button>
+                        <button onclick="deleteProduct('${p.name}')" class="text-red-500 hover:underline text-xs">刪除</button>
+                    </td>
+                </tr>`;
             }).join('');
+        }
+
+        function editProduct(name) {
+            let products = JSON.parse(localStorage.getItem('pos_products')) || [];
+            let prod = products.find(p => p.name === name);
+            if (!prod) return;
+
+            document.getElementById('pCategory').value = prod.category;
+            document.getElementById('pName').value = prod.name;
+            document.getElementById('pCost').value = prod.cost || '';
+            document.getElementById('pUnit').value = prod.unit || '只';
+            document.getElementById('pCost').focus();
         }
 
         function saveCustomer() {
@@ -1097,9 +1124,13 @@
             if (!name) return alert('請輸入商品名稱！');
             let products = JSON.parse(localStorage.getItem('pos_products')) || [];
             
-            // 💡 若已有同名商品則更新，沒有則新增
             let existingIdx = products.findIndex(p => p.name === name);
-            let productData = { category: document.getElementById('pCategory').value, name, cost: parseFloat(document.getElementById('pCost').value) || 0, unit: document.getElementById('pUnit').value };
+            let productData = { 
+                category: document.getElementById('pCategory').value, 
+                name, 
+                cost: parseFloat(document.getElementById('pCost').value) || 0, 
+                unit: document.getElementById('pUnit').value 
+            };
             
             if (existingIdx !== -1) {
                 products[existingIdx] = productData;
@@ -1108,7 +1139,9 @@
             }
 
             localStorage.setItem('pos_products', JSON.stringify(products));
-            renderProductTable(); resetProductForm();
+            renderProductTable(); 
+            resetProductForm();
+            alert(`已成功儲存商品：${name}`);
         }
 
         function resetProductForm() {
@@ -1199,7 +1232,6 @@
         function openStatementModal(storeName) {
             currentStatementStore = storeName;
             
-            // 預設對帳單區間跟隨第一頁的起訖日
             document.getElementById('startDate').value = document.getElementById('reportStartDate').value;
             document.getElementById('endDate').value = document.getElementById('reportEndDate').value;
             
