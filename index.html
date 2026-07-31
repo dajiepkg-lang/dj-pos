@@ -31,10 +31,10 @@
                 <h1 class="text-2xl md:text-3xl font-bold text-blue-900">📦 DJ社</h1>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <button onclick="saveToCloud()" class="bg-emerald-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-emerald-700 shadow flex items-center space-x-1">
+                <button onclick="saveToCloud()" id="btn-sync" class="bg-emerald-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-emerald-700 shadow flex items-center space-x-1">
                     <span>☁️ 儲存至雲端</span>
                 </button>
-                <button onclick="loadFromCloud()" class="bg-blue-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-blue-700 shadow flex items-center space-x-1">
+                <button onclick="loadFromCloud()" id="btn-load" class="bg-blue-600 text-white text-xs px-3 py-2 rounded-lg font-bold hover:bg-blue-700 shadow flex items-center space-x-1">
                     <span>🔄 從雲端載入</span>
                 </button>
                 <span class="text-gray-300">|</span>
@@ -59,7 +59,7 @@
         <!-- 近 7 日待繳預警 -->
         <div id="upcoming-alert" class="bg-red-50 border-l-4 border-red-600 p-4 rounded-lg mb-6 hidden shadow-sm"></div>
 
-        <!-- ================= 1. 收支狀況預測 (月報表與損益預估) ================= -->
+        <!-- ================= 1. 收支狀況預測 ================= -->
         <div id="tab-report" class="bg-white p-6 rounded-xl shadow-md border space-y-6">
             <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b pb-4 gap-4">
                 <div class="flex flex-wrap items-center gap-2">
@@ -78,7 +78,6 @@
                 </button>
             </div>
             
-            <!-- 頂部卡片總覽 -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r shadow-sm">
                     <p class="text-gray-600 text-sm font-semibold">區間累積總銷售額 (含稅總額)：</p>
@@ -90,15 +89,11 @@
                 </div>
             </div>
 
-            <!-- 月份收支長條圖分析 -->
             <div>
                 <h3 class="text-lg font-bold mb-2 text-gray-700">📈 銷售趨勢圖表</h3>
-                <div class="chart-container">
-                    <canvas id="reportChart"></canvas>
-                </div>
+                <div class="chart-container"><canvas id="reportChart"></canvas></div>
             </div>
 
-            <!-- 集團彙總表 -->
             <div>
                 <h3 class="text-lg font-bold mb-2 text-gray-700">🏢 集團 / 母公司 總結算彙總</h3>
                 <div class="overflow-x-auto">
@@ -116,7 +111,6 @@
                 </div>
             </div>
 
-            <!-- 各分店結算表 -->
             <div>
                 <h3 class="text-lg font-bold mb-2 text-gray-700">📍 各分店 區間結算明細與對帳單</h3>
                 <div class="overflow-x-auto">
@@ -136,7 +130,7 @@
             </div>
         </div>
 
-        <!-- ================= 2. 現金水位與關帳對帳 ================= -->
+        <!-- ================= 2. 現金水位 ================= -->
         <div id="tab-cashflow" class="space-y-6 hidden">
             <div class="bg-white p-6 rounded-xl shadow-md border">
                 <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
@@ -176,7 +170,6 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- 左側：排程新增表單 -->
                 <div class="lg:col-span-4 bg-white p-6 rounded-xl shadow-md border self-start">
                     <div class="flex space-x-2 mb-4 bg-gray-100 p-1 rounded-lg">
                         <button onclick="switchSubTab('single')" id="subtab-single" class="flex-1 py-1.5 text-sm font-bold rounded bg-white text-blue-600 shadow">單次收支</button>
@@ -203,7 +196,7 @@
                         </div>
                         <div>
                             <label class="text-xs font-semibold text-gray-600">專案/分類標籤</label>
-                            <input type="text" id="item-tag" list="existing-tags" placeholder="例如：日常營運、老屋翻修" class="w-full border rounded p-2 text-sm">
+                            <input type="text" id="item-tag" list="existing-tags" placeholder="例如：日常營運" class="w-full border rounded p-2 text-sm">
                         </div>
                         <div>
                             <label class="text-xs font-semibold text-gray-600">金額 (NTD)</label>
@@ -246,20 +239,15 @@
                     </div>
                 </div>
 
-                <!-- 右側：趨勢圖表與流水帳 -->
                 <div class="lg:col-span-8 space-y-6">
                     <div class="bg-white p-6 rounded-xl shadow-md border">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="font-bold text-gray-700 text-lg">📈 資金水位趨勢 (<span id="chart-title-mode">總金流</span>)</h2>
-                            <div class="flex items-center space-x-2">
-                                <select id="filter-tag" onchange="updateCashflowSystem()" class="border rounded p-1 text-xs">
-                                    <option value="all">顯示全部 (計算總資金餘額)</option>
-                                </select>
-                            </div>
+                            <select id="filter-tag" onchange="updateCashflowSystem()" class="border rounded p-1 text-xs">
+                                <option value="all">顯示全部</option>
+                            </select>
                         </div>
-                        <div class="chart-container">
-                            <canvas id="balanceChart"></canvas>
-                        </div>
+                        <div class="chart-container"><canvas id="balanceChart"></canvas></div>
                     </div>
 
                     <div class="bg-white p-6 rounded-xl shadow-md border">
@@ -284,13 +272,13 @@
             </div>
         </div>
 
-        <!-- ================= 3. 發票單據管理 頁面 ================= -->
+        <!-- ================= 3. 發票單據管理 ================= -->
         <div id="tab-orders" class="bg-white p-6 rounded-xl shadow-md border hidden">
             <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">📑 已轉入之電子發票單據紀錄</h2>
             <div id="orderList" class="space-y-4"></div>
         </div>
 
-        <!-- ================= 4. 電子發票轉入 頁面 ================= -->
+        <!-- ================= 4. 電子發票轉入 ================= -->
         <div id="tab-import" class="bg-white p-6 rounded-xl shadow-md border hidden">
             <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">電子發票 Excel 智慧轉入</h2>
             <div class="bg-blue-50 border border-blue-200 p-6 rounded-lg text-center max-w-xl mx-auto space-y-4">
@@ -305,12 +293,11 @@
             </div>
         </div>
 
-        <!-- ================= 5. 客戶與集團分店 頁面 ================= -->
+        <!-- ================= 5. 客戶與分店 ================= -->
         <div id="tab-customer" class="bg-white p-6 rounded-xl shadow-md border hidden space-y-6">
             <h2 class="text-xl font-bold border-b pb-2 text-gray-700">客戶與集團分店資料維護</h2>
             <div class="bg-gray-50 p-4 rounded-lg border">
                 <h3 id="customerFormTitle" class="font-bold text-gray-700 mb-3">新增客戶 / 分店</h3>
-                <input type="hidden" id="editingCustomerOriginalName" value="">
                 <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
                     <input type="text" id="cName" placeholder="分店/客戶名稱" class="border rounded p-2 text-sm">
                     <input type="text" id="cCode" placeholder="客戶代號" class="border rounded p-2 text-sm">
@@ -318,22 +305,15 @@
                     <input type="text" id="cTaxId" placeholder="統一編號" class="border rounded p-2 text-sm">
                     <input type="text" id="cAddress" placeholder="地址/備註" class="border rounded p-2 text-sm">
                 </div>
-                <div class="flex space-x-2">
-                    <button onclick="saveCustomer()" id="customerSubmitBtn" class="bg-emerald-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-emerald-700">新增客戶</button>
-                    <button onclick="resetCustomerForm()" id="customerCancelBtn" class="bg-gray-400 text-white px-4 py-2 rounded text-sm font-bold hidden">取消修改</button>
-                </div>
+                <button onclick="saveCustomer()" id="customerSubmitBtn" class="bg-emerald-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-emerald-700">新增客戶</button>
             </div>
-
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
                     <thead>
                         <tr class="bg-gray-100 text-gray-700">
-                            <th class="p-2.5 border">客戶名稱</th>
-                            <th class="p-2.5 border">代號</th>
-                            <th class="p-2.5 border">所屬集團</th>
-                            <th class="p-2.5 border">統編</th>
-                            <th class="p-2.5 border">備註</th>
-                            <th class="p-2.5 border text-center">操作</th>
+                            <th class="p-2.5 border">客戶名稱</th><th class="p-2.5 border">代號</th>
+                            <th class="p-2.5 border">所屬集團</th><th class="p-2.5 border">統編</th>
+                            <th class="p-2.5 border">備註</th><th class="p-2.5 border text-center">操作</th>
                         </tr>
                     </thead>
                     <tbody id="customerTableBody"></tbody>
@@ -341,7 +321,7 @@
             </div>
         </div>
 
-        <!-- ================= 6. 商品成本與分類 頁面 ================= -->
+        <!-- ================= 6. 商品成本 ================= -->
         <div id="tab-product" class="bg-white p-6 rounded-xl shadow-md border hidden space-y-6">
             <h2 class="text-xl font-bold border-b pb-2 text-gray-700">商品成本與分類維護</h2>
             <div class="bg-blue-50 p-4 rounded-lg border">
@@ -355,7 +335,6 @@
 
             <div class="bg-gray-50 p-4 rounded-lg border">
                 <h3 id="productFormTitle" class="font-bold text-gray-700 mb-3">新增 / 編輯商品成本</h3>
-                <input type="hidden" id="editingProductOriginalName" value="">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                     <select id="pCategory" class="border rounded p-2 text-sm bg-white"></select>
                     <input type="text" id="pName" placeholder="商品名稱" class="border rounded p-2 text-sm">
@@ -364,20 +343,15 @@
                         <option value="只">只</option><option value="件">件</option><option value="袋">袋</option><option value="盒">盒</option><option value="包">包</option><option value="箱">箱</option><option value="個">個</option>
                     </select>
                 </div>
-                <div class="flex space-x-2">
-                    <button onclick="saveProduct()" id="productSubmitBtn" class="bg-emerald-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-emerald-700">儲存商品</button>
-                    <button onclick="resetProductForm()" id="productCancelBtn" class="bg-gray-400 text-white px-4 py-2 rounded text-sm font-bold hidden">取消修改</button>
-                </div>
+                <button onclick="saveProduct()" id="productSubmitBtn" class="bg-emerald-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-emerald-700">儲存商品</button>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
                     <thead>
                         <tr class="bg-gray-100 text-gray-700">
-                            <th class="p-2.5 border">分類</th>
-                            <th class="p-2.5 border">商品名稱</th>
-                            <th class="p-2.5 border">單位</th>
-                            <th class="p-2.5 border">未稅進價成本</th>
+                            <th class="p-2.5 border">分類</th><th class="p-2.5 border">商品名稱</th>
+                            <th class="p-2.5 border">單位</th><th class="p-2.5 border">未稅進價成本</th>
                             <th class="p-2.5 border text-center">操作</th>
                         </tr>
                     </thead>
@@ -387,103 +361,68 @@
         </div>
     </div>
 
-    <!-- 401 報表 Modal -->
+    <!-- 報表 Modals... -->
     <div id="tax401Modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4">
+        <!-- 省略部分 Modal HTML 保持與之前一致 -->
         <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
-            <button onclick="close401Modal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold">✕</button>
-            <h2 class="text-xl font-bold mb-3 text-gray-800 border-b pb-2">📑 匯出 401 營業稅申報報表</h2>
+            <button onclick="close401Modal()" class="absolute top-4 right-4 text-gray-400 font-bold">✕</button>
+            <h2 class="text-xl font-bold mb-3 border-b pb-2">📑 匯出 401 營業稅申報報表</h2>
             <div class="space-y-3 mb-6">
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">起始日期</label>
-                    <input type="date" id="taxStart" class="w-full border rounded p-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">結束日期</label>
-                    <input type="date" id="taxEnd" class="w-full border rounded p-2 text-sm">
-                </div>
+                <div><label class="block text-xs font-bold mb-1">起始日期</label><input type="date" id="taxStart" class="w-full border rounded p-2 text-sm"></div>
+                <div><label class="block text-xs font-bold mb-1">結束日期</label><input type="date" id="taxEnd" class="w-full border rounded p-2 text-sm"></div>
             </div>
             <div class="flex justify-end space-x-2">
-                <button onclick="close401Modal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-bold">取消</button>
-                <button onclick="confirmExport401()" class="bg-emerald-700 text-white px-5 py-2 rounded text-sm font-bold hover:bg-emerald-800">下載 Excel</button>
+                <button onclick="close401Modal()" class="bg-gray-300 px-4 py-2 rounded font-bold">取消</button>
+                <button onclick="confirmExport401()" class="bg-emerald-700 text-white px-5 py-2 rounded font-bold">下載 Excel</button>
             </div>
         </div>
     </div>
 
-    <!-- 對帳單 Modal -->
     <div id="statementModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4 overflow-y-auto">
         <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 relative max-h-[95vh] overflow-y-auto">
-            <button onclick="closeStatementModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold">✕</button>
-            <h2 class="text-xl font-bold mb-4 text-gray-800 border-b pb-2">自訂關帳對帳區間與明細預覽</h2>
-            <div class="bg-gray-50 p-4 rounded-lg border mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div class="flex items-center space-x-2">
-                    <label class="text-sm font-bold text-gray-700">起始日期：</label>
-                    <input type="date" id="startDate" class="border rounded p-1.5 text-sm bg-white" onchange="generateStatementData()">
-                </div>
-                <div class="flex items-center space-x-2">
-                    <label class="text-sm font-bold text-gray-700">結束日期：</label>
-                    <input type="date" id="endDate" class="border rounded p-1.5 text-sm bg-white" onchange="generateStatementData()">
-                </div>
-                <button onclick="generateStatementData()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">重新計算</button>
+            <button onclick="closeStatementModal()" class="absolute top-4 right-4 text-gray-400 text-2xl font-bold">✕</button>
+            <h2 class="text-xl font-bold mb-4 border-b pb-2">自訂關帳對帳區間與明細預覽</h2>
+            <div class="bg-gray-50 p-4 rounded-lg border mb-6 flex gap-4">
+                <div class="flex items-center space-x-2"><label class="text-sm font-bold">起始日期：</label><input type="date" id="startDate" class="border rounded p-1.5 text-sm" onchange="generateStatementData()"></div>
+                <div class="flex items-center space-x-2"><label class="text-sm font-bold">結束日期：</label><input type="date" id="endDate" class="border rounded p-1.5 text-sm" onchange="generateStatementData()"></div>
+                <button onclick="generateStatementData()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold">重新計算</button>
             </div>
-
             <div id="statementPrintArea" class="bg-[#ffffd9] p-6 rounded border text-gray-900 font-sans shadow-inner">
                 <div class="flex justify-between items-start mb-4 text-xs">
-                    <div>
-                        <p>客戶簡稱：<span id="stShortName" class="font-bold"></span></p>
-                        <p>客戶名稱：<span id="stStoreName" class="font-bold"></span></p>
-                        <p>對帳日期：<span id="stDate"></span></p>
-                    </div>
-                    <div class="text-right">
-                        <p>客戶代號：<span id="stCustomerCode" class="font-bold"></span></p>
-                        <p>統一編號：<span id="stTaxId"></span></p>
-                    </div>
+                    <div><p>客戶簡稱：<span id="stShortName" class="font-bold"></span></p><p>客戶名稱：<span id="stStoreName" class="font-bold"></span></p><p>對帳日期：<span id="stDate"></span></p></div>
+                    <div class="text-right"><p>客戶代號：<span id="stCustomerCode" class="font-bold"></span></p><p>統一編號：<span id="stTaxId"></span></p></div>
                 </div>
-                <h3 class="text-center text-lg font-bold underline mb-4 tracking-wider">客戶往來明細表</h3>
+                <h3 class="text-center text-lg font-bold underline mb-4">客戶往來明細表</h3>
                 <table class="w-full text-left border-collapse text-xs border border-gray-400 bg-white">
                     <thead>
-                        <tr class="bg-[#e6e6b8] text-gray-900 text-center font-bold">
-                            <th class="p-2 border border-gray-400">交易日期</th>
-                            <th class="p-2 border border-gray-400">發票號碼</th>
-                            <th class="p-2 border border-gray-400">未稅金額</th>
-                            <th class="p-2 border border-gray-400">稅額</th>
-                            <th class="p-2 border border-gray-400">應稅金額</th>
-                            <th class="p-2 border border-gray-400">應收小計</th>
+                        <tr class="bg-[#e6e6b8] text-center font-bold">
+                            <th class="p-2 border border-gray-400">交易日期</th><th class="p-2 border border-gray-400">發票號碼</th>
+                            <th class="p-2 border border-gray-400">未稅金額</th><th class="p-2 border border-gray-400">稅額</th>
+                            <th class="p-2 border border-gray-400">應稅金額</th><th class="p-2 border border-gray-400">應收小計</th>
                         </tr>
                     </thead>
                     <tbody id="stItemTableBody"></tbody>
                     <tfoot>
                         <tr class="bg-[#e6e6b8] font-bold">
-                            <td class="p-2 border border-gray-400 text-center">加總金額</td>
-                            <td class="p-2 border border-gray-400"></td>
-                            <td id="stTotalNoTax" class="p-2 border border-gray-400 text-right">0</td>
-                            <td id="stTotalTax" class="p-2 border border-gray-400 text-right">0</td>
-                            <td id="stTotalTaxable" class="p-2 border border-gray-400 text-right">0</td>
-                            <td id="stGrandTotal" class="p-2 border border-gray-400 text-right text-blue-800">0</td>
+                            <td class="p-2 border border-gray-400 text-center">加總金額</td><td class="p-2 border border-gray-400"></td>
+                            <td id="stTotalNoTax" class="p-2 border border-gray-400 text-right">0</td><td id="stTotalTax" class="p-2 border border-gray-400 text-right">0</td>
+                            <td id="stTotalTaxable" class="p-2 border border-gray-400 text-right">0</td><td id="stGrandTotal" class="p-2 border border-gray-400 text-right text-blue-800">0</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
-
             <div class="mt-6 flex justify-end space-x-3 border-t pt-4">
-                <button onclick="closeStatementModal()" class="bg-gray-300 text-gray-700 px-5 py-2 rounded-lg font-bold">關閉</button>
-                <button onclick="printStatement()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow">🖨️ 列印 / 存成 PDF</button>
+                <button onclick="closeStatementModal()" class="bg-gray-300 px-5 py-2 rounded-lg font-bold">關閉</button>
+                <button onclick="printStatement()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow">🖨️ 列印</button>
             </div>
         </div>
     </div>
 
     <script>
-        // =========================================================
-        // 🔒 金鑰拆解 Part 1 / Part 2 (防止 GitHub 安全掃描自動撤銷)
-        // =========================================================
-        const KEY_PARTS = {
-            PART1: "github_pat_11CJ5IKRI0G8mLODOFgLf0_gE3uh1kfc6y",
-            PART2: "HOeA9iOSydnuvGZL149AlB3sKDLfZfbSEIUWSS5ZVWETMEVK",
-            GIST_ID: "f49e3f13a914c5a77ed9d31c816cd3e6"
-        };
-
-        function getAuthToken() {
-            return KEY_PARTS.PART1 + KEY_PARTS.PART2;
-        }
+        // ==========================================
+        // ⚠️ 請在這裡貼上你 Google Apps Script 部署後的網址
+        // ==========================================
+        const API_URL = "https://script.google.com/macros/s/AKfycbx9nEBX5CD96TKWb1pP0ypVPsCK_YCZKIGI9snfmrTOcDhdbg-k_XoAjf0Ws_m4Eej96g/exec"; 
 
         function getLocalDateString(d) {
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -494,7 +433,7 @@
         let barChartInstance = null;
         let currentStatementStore = '';
 
-        // --- 資料狀態初始化 ---
+        // 資料狀態初始化
         let singleItems = JSON.parse(localStorage.getItem('cf_single_v11')) || [];
         let recurringItems = JSON.parse(localStorage.getItem('cf_recurring_v11')) || [];
         let anchorDate = localStorage.getItem('cf_anchor_date_v11') || todayStrGlobal;
@@ -507,10 +446,7 @@
             document.getElementById('anchor-date').value = anchorDate;
             document.getElementById('anchor-bank').value = anchorBank;
             document.getElementById('anchor-cash').value = anchorCash;
-
-            // 初始化預設為本期關帳區間 (上月26~本月25)
             setReportPeriod('closing');
-
             renderCategoryDropdowns();
             renderCustomerTable();
             renderProductTable();
@@ -519,63 +455,110 @@
         };
 
         function initDefaultData() {
-            if (!localStorage.getItem('pos_categories')) {
-                localStorage.setItem('pos_categories', JSON.stringify(['便當盒', '南北雜貨', '塑膠袋/包材', '手套/消耗品', '其他']));
-            }
-            if (!localStorage.getItem('pos_products')) {
-                const defaultProducts = [
-                    { category: '便當盒', name: 'APP一體小31高600入', cost: 0.85, unit: '只' },
-                    { category: '南北雜貨', name: '孟宗竹筷-566 (100*30包)', cost: 560, unit: '袋' }
-                ];
-                localStorage.setItem('pos_products', JSON.stringify(defaultProducts));
-            }
-            if (!localStorage.getItem('pos_customers')) {
-                const defaultCustomers = [
-                    { name: '六星便當平山團膳店', code: '20000001', group: '獨立客戶', taxId: '', address: '' },
-                    { name: '台灣卜蜂企業股份有限公司', code: '20000002', group: '台灣卜蜂企業股份有限公司', taxId: '36514783', address: '' }
-                ];
-                localStorage.setItem('pos_customers', JSON.stringify(defaultCustomers));
+            if (!localStorage.getItem('pos_categories')) localStorage.setItem('pos_categories', JSON.stringify(['便當盒', '南北雜貨', '塑膠袋/包材', '手套/消耗品', '其他']));
+            if (!localStorage.getItem('pos_products')) localStorage.setItem('pos_products', JSON.stringify([{ category: '便當盒', name: 'APP一體小31高600入', cost: 0.85, unit: '只' }]));
+            if (!localStorage.getItem('pos_customers')) localStorage.setItem('pos_customers', JSON.stringify([{ name: '台灣卜蜂企業股份有限公司', code: '20000002', group: '台灣卜蜂企業股份有限公司', taxId: '36514783', address: '' }]));
+        }
+
+        // --- GAS 雲端連線 (取代 GitHub) ---
+        async function saveToCloud() {
+            if (API_URL === "YOUR_WEB_APP_URL_HERE" || !API_URL) return alert("請先在程式碼中設定 API_URL！");
+            const btn = document.getElementById('btn-sync');
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ 同步中..."; btn.disabled = true;
+
+            const payload = {
+                config: {
+                    singleItems: singleItems,
+                    recurringItems: recurringItems,
+                    anchorDate: anchorDate,
+                    anchorBank: anchorBank,
+                    anchorCash: anchorCash
+                },
+                // 若後端 GAS 更新，也可將發票資料一併上傳。目前將所有 LocalStorage 的資料全部包成字串方便傳送
+                fullBackup: {
+                    pos_categories: localStorage.getItem('pos_categories'),
+                    pos_products: localStorage.getItem('pos_products'),
+                    pos_customers: localStorage.getItem('pos_customers'),
+                    pos_orders: localStorage.getItem('pos_orders'),
+                    cf_single_v11: localStorage.getItem('cf_single_v11'),
+                    cf_recurring_v11: localStorage.getItem('cf_recurring_v11')
+                }
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
+                const result = await response.json();
+                if (result.status === 'success') alert('☁️ 數據已成功同步至 Google 雲端！');
+                else alert('同步失敗：' + result.message);
+            } catch (error) {
+                alert('網路連線錯誤或 API 設定有誤。');
+            } finally {
+                btn.innerText = originalText; btn.disabled = false;
             }
         }
 
-        // --- 報表自訂區間快捷設定 ---
-        function setReportPeriod(type) {
-            let today = new Date();
-            let start, end;
+        async function loadFromCloud() {
+            if (API_URL === "YOUR_WEB_APP_URL_HERE" || !API_URL) return alert("請先在程式碼中設定 API_URL！");
+            if (!confirm('確定要從雲端載入資料嗎？這將會覆蓋你目前畫面上的所有紀錄！')) return;
 
-            if (type === 'closing') {
-                let currMonth = today.getMonth();
-                let currYear = today.getFullYear();
+            const btn = document.getElementById('btn-load');
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ 載入中..."; btn.disabled = true;
+
+            try {
+                const response = await fetch(API_URL, { method: 'GET' });
+                const data = await response.json();
                 
-                let sDate = new Date(currYear, currMonth - 1, 26);
-                let eDate = new Date(currYear, currMonth, 25);
-                start = getLocalDateString(sDate);
-                end = getLocalDateString(eDate);
+                if (data.status === 'success') {
+                    // 若後端有支援完整回傳，將資料寫入 localStorage
+                    if (data.singleItems) localStorage.setItem('cf_single_v11', JSON.stringify(data.singleItems));
+                    if (data.recurringItems) localStorage.setItem('cf_recurring_v11', JSON.stringify(data.recurringItems));
+                    if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
+                    if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
+                    if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
+                    
+                    alert('☁️ 已成功從雲端載入系統設定！');
+                    location.reload();
+                } else {
+                    alert('載入失敗：' + data.message);
+                }
+            } catch (error) {
+                alert('網路連線錯誤，無法載入資料。');
+            } finally {
+                btn.innerText = originalText; btn.disabled = false;
+            }
+        }
+
+        // --- 報表自訂區間 ---
+        function setReportPeriod(type) {
+            let today = new Date(); let start, end;
+            if (type === 'closing') {
+                let sDate = new Date(today.getFullYear(), today.getMonth() - 1, 26);
+                let eDate = new Date(today.getFullYear(), today.getMonth(), 25);
+                start = getLocalDateString(sDate); end = getLocalDateString(eDate);
             } else if (type === 'natural') {
                 let sDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 let eDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                start = getLocalDateString(sDate);
-                end = getLocalDateString(eDate);
+                start = getLocalDateString(sDate); end = getLocalDateString(eDate);
             }
-
             document.getElementById('reportStartDate').value = start;
             document.getElementById('reportEndDate').value = end;
             loadPOSReports();
         }
 
-        // --- 頁籤切換 ---
         function switchTab(tab) {
-            const tabs = ['report', 'cashflow', 'orders', 'import', 'customer', 'product'];
-            tabs.forEach(t => {
-                let el = document.getElementById(`tab-${t}`);
-                let btn = document.getElementById(`btn-${t}`);
+            ['report', 'cashflow', 'orders', 'import', 'customer', 'product'].forEach(t => {
+                let el = document.getElementById(`tab-${t}`); let btn = document.getElementById(`btn-${t}`);
                 if (el) el.classList.add('hidden');
                 if (btn) btn.className = 'bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-semibold shadow hover:bg-gray-400';
             });
-
             document.getElementById(`tab-${tab}`).classList.remove('hidden');
             document.getElementById(`btn-${tab}`).className = 'bg-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold shadow';
-
             if (tab === 'cashflow') updateCashflowSystem();
             if (tab === 'report' || tab === 'orders') loadPOSReports();
             if (tab === 'product') renderProductTable();
@@ -588,12 +571,10 @@
             document.getElementById('recurring-form').style.display = mode === 'recurring' ? 'block' : 'none';
         }
 
-        // --- 資金水位系統核心 ---
         function saveAndUpdateCashflow() {
             anchorDate = document.getElementById('anchor-date').value;
             anchorBank = parseFloat(document.getElementById('anchor-bank').value) || 0;
             anchorCash = parseFloat(document.getElementById('anchor-cash').value) || 0;
-            
             localStorage.setItem('cf_single_v11', JSON.stringify(singleItems));
             localStorage.setItem('cf_recurring_v11', JSON.stringify(recurringItems));
             localStorage.setItem('cf_anchor_date_v11', anchorDate);
@@ -616,11 +597,8 @@
                 anchorBank -= amount; anchorCash += amount;
                 singleItems.push({ id: Date.now(), date: todayStrGlobal, name: '內部轉帳 (銀行 ➔ 現金)', type: 'transfer', tag: '資金調度', amt: amount });
             }
-
-            document.getElementById('anchor-bank').value = anchorBank;
-            document.getElementById('anchor-cash').value = anchorCash;
-            document.getElementById('transfer-amount').value = '';
-            saveAndUpdateCashflow();
+            document.getElementById('anchor-bank').value = anchorBank; document.getElementById('anchor-cash').value = anchorCash;
+            document.getElementById('transfer-amount').value = ''; saveAndUpdateCashflow();
         }
 
         function addSingleItem() {
@@ -631,10 +609,8 @@
             const tag = document.getElementById('item-tag').value.trim() || '未分類';
             const amt = parseFloat(document.getElementById('item-amount').value);
             if (!date || !name || isNaN(amt)) return alert('請填寫完整資訊');
-
             singleItems.push({ id: Date.now(), date, name, type, tag, amt, isRecurringInstance: false });
-            saveAndUpdateCashflow();
-            document.getElementById('item-name').value = ''; document.getElementById('item-amount').value = '';
+            saveAndUpdateCashflow(); document.getElementById('item-name').value = ''; document.getElementById('item-amount').value = '';
         }
 
         function addRecurringItem() {
@@ -645,16 +621,13 @@
             const amt = parseFloat(document.getElementById('rec-amount').value);
             const endMonth = document.getElementById('rec-end').value;
             if (!name || isNaN(amt)) return alert('請填寫完整資訊');
-
             recurringItems.push({ id: Date.now(), day, name, type, tag, amt, endMonth });
-            saveAndUpdateCashflow();
-            document.getElementById('rec-name').value = ''; document.getElementById('rec-amount').value = '';
+            saveAndUpdateCashflow(); document.getElementById('rec-name').value = ''; document.getElementById('rec-amount').value = '';
         }
 
         function deleteCashflowItem(id, isRec, itemDate) {
-            if (isRec) {
-                recurringItems = recurringItems.filter(i => i.id !== id);
-            } else {
+            if (isRec) recurringItems = recurringItems.filter(i => i.id !== id);
+            else {
                 if (itemDate && itemDate < anchorDate) return alert(`🔒 該筆紀錄已關帳鎖定，無法刪除！`);
                 singleItems = singleItems.filter(i => i.id !== id);
             }
@@ -662,9 +635,7 @@
         }
 
         function updateCashflowSystem() {
-            let rawItems = [...singleItems];
-            let today = new Date();
-
+            let rawItems = [...singleItems]; let today = new Date();
             recurringItems.forEach(def => {
                 let tempDate = new Date(today.getFullYear(), today.getMonth() - 12, def.day);
                 for(let i=0; i < 48; i++) {
@@ -676,13 +647,11 @@
             });
 
             let uniqueTags = [...new Set(singleItems.map(i => i.tag).concat(recurringItems.map(r => r.tag)))].filter(t => t);
-            const filterSelect = document.getElementById('filter-tag');
-            const activeTag = filterSelect.value;
-            filterSelect.innerHTML = '<option value="all">顯示全部 (計算總資金餘額)</option>';
+            const filterSelect = document.getElementById('filter-tag'); const activeTag = filterSelect.value;
+            filterSelect.innerHTML = '<option value="all">顯示全部</option>';
             uniqueTags.forEach(t => {
                 let opt = document.createElement('option'); opt.value = t; opt.innerText = `專案：${t}`;
-                if (t === activeTag) opt.selected = true;
-                filterSelect.appendChild(opt);
+                if (t === activeTag) opt.selected = true; filterSelect.appendChild(opt);
             });
 
             let displayItems = activeTag !== 'all' ? rawItems.filter(i => i.tag === activeTag) : rawItems;
@@ -691,19 +660,11 @@
             let baseBal = activeTag === 'all' ? (anchorBank + anchorCash) : 0;
             let netBeforeAnchor = 0;
             if (activeTag === 'all') {
-                displayItems.forEach(i => {
-                    if (i.date < anchorDate && i.type !== 'transfer') {
-                        netBeforeAnchor += (i.type === 'income' ? i.amt : -i.amt);
-                    }
-                });
+                displayItems.forEach(i => { if (i.date < anchorDate && i.type !== 'transfer') netBeforeAnchor += (i.type === 'income' ? i.amt : -i.amt); });
             }
 
-            let dawnBal = baseBal - netBeforeAnchor;
-            let currBal = dawnBal;
-            displayItems.forEach(i => {
-                if (i.type !== 'transfer') currBal += (i.type === 'income' ? i.amt : -i.amt);
-                i.runningBalance = currBal;
-            });
+            let dawnBal = baseBal - netBeforeAnchor; let currBal = dawnBal;
+            displayItems.forEach(i => { if (i.type !== 'transfer') currBal += (i.type === 'income' ? i.amt : -i.amt); i.runningBalance = currBal; });
 
             let todayBal = dawnBal;
             for(let i=0; i<displayItems.length; i++) {
@@ -711,7 +672,6 @@
                 else break;
             }
             document.getElementById('today-total-display').innerText = todayBal.toLocaleString();
-
             renderUpcomingAlert(displayItems);
 
             const tbody = document.getElementById('timeline-body'); tbody.innerHTML = '';
@@ -722,81 +682,46 @@
                 const isInc = i.type === 'income'; const isTrans = i.type === 'transfer';
                 const isClosed = i.date < anchorDate;
 
-                let row = document.createElement('tr');
-                row.className = "border-b hover:bg-gray-50";
-                row.innerHTML = `
-                    <td class="p-2">${i.date}</td>
-                    <td class="p-2 font-medium">${i.name} ${i.tag !== '未分類' ? `<span class="project-tag">${i.tag}</span>` : ''}</td>
-                    <td class="p-2"><span class="type-tag ${isTrans ? 'tag-transfer' : (isInc ? 'tag-income' : 'tag-expense')}">${isTrans ? '調度' : (isInc ? '收入' : '支出')}</span></td>
-                    <td class="p-2 ${isInc ? 'amt-in' : 'amt-out'}">${isInc ? '+' : '-'} $${i.amt.toLocaleString()}</td>
-                    <td class="p-2 balance-cell">$${i.runningBalance.toLocaleString()}</td>
-                    <td class="p-2 text-center">${isClosed ? '<span class="text-xs text-gray-400 font-bold">🔒 已關帳</span>' : `<button onclick="deleteCashflowItem(${i.id}, ${i.isRecurringInstance}, '${i.date}')" class="text-red-500 hover:underline text-xs">刪除</button>`}</td>
-                `;
-                tbody.appendChild(row);
-                labels.push(i.date.slice(5)); data.push(i.runningBalance);
+                let row = document.createElement('tr'); row.className = "border-b hover:bg-gray-50";
+                row.innerHTML = `<td class="p-2">${i.date}</td><td class="p-2 font-medium">${i.name} ${i.tag !== '未分類' ? `<span class="project-tag">${i.tag}</span>` : ''}</td><td class="p-2"><span class="type-tag ${isTrans ? 'tag-transfer' : (isInc ? 'tag-income' : 'tag-expense')}">${isTrans ? '調度' : (isInc ? '收入' : '支出')}</span></td><td class="p-2 ${isInc ? 'amt-in' : 'amt-out'}">${isInc ? '+' : '-'} $${i.amt.toLocaleString()}</td><td class="p-2 balance-cell">$${i.runningBalance.toLocaleString()}</td><td class="p-2 text-center">${isClosed ? '<span class="text-xs text-gray-400 font-bold">🔒 已關帳</span>' : `<button onclick="deleteCashflowItem(${i.id}, ${i.isRecurringInstance}, '${i.date}')" class="text-red-500 hover:underline text-xs">刪除</button>`}</td>`;
+                tbody.appendChild(row); labels.push(i.date.slice(5)); data.push(i.runningBalance);
             });
 
             const ctx = document.getElementById('balanceChart').getContext('2d');
             if (lineChartInstance) lineChartInstance.destroy();
-            lineChartInstance = new Chart(ctx, {
-                type: 'line', data: { labels: labels, datasets: [{ label: '預估餘額', data: data, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.05)', fill: true, stepped: true }] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+            lineChartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: '預估餘額', data: data, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.05)', fill: true, stepped: true }] }, options: { responsive: true, maintainAspectRatio: false } });
         }
 
         function renderUpcomingAlert(items) {
             let nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 7);
             let nextWeekStr = getLocalDateString(nextWeek);
             let total = 0, list = [];
-
-            items.forEach(i => {
-                if (i.date >= todayStrGlobal && i.date <= nextWeekStr && i.type === 'expense') {
-                    total += i.amt;
-                    list.push(`[${i.date.slice(5)}] ${i.name}: $${i.amt.toLocaleString()}`);
-                }
-            });
-
+            items.forEach(i => { if (i.date >= todayStrGlobal && i.date <= nextWeekStr && i.type === 'expense') { total += i.amt; list.push(`[${i.date.slice(5)}] ${i.name}: $${i.amt.toLocaleString()}`); } });
             const alertDiv = document.getElementById('upcoming-alert');
             if (total > 0) {
-                alertDiv.classList.remove('hidden');
-                alertDiv.innerHTML = `<strong>⚠️ 近 7 日預警與待繳：</strong> 接下來 7 天內，總計有 <span class="text-red-600 font-bold text-lg">$${total.toLocaleString()}</span> 元待繳項目。<br><span class="text-xs text-gray-600 mt-1 block"><strong>明細：</strong> ${list.join(' ｜ ')}</span>`;
+                alertDiv.classList.remove('hidden'); alertDiv.innerHTML = `<strong>⚠️ 近 7 日預警與待繳：</strong> 接下來 7 天內，總計有 <span class="text-red-600 font-bold text-lg">$${total.toLocaleString()}</span> 元待繳項目。<br><span class="text-xs text-gray-600 mt-1 block"><strong>明細：</strong> ${list.join(' ｜ ')}</span>`;
             } else alertDiv.classList.add('hidden');
         }
 
-        // --- 計算入帳日 (25號關帳，1~25號排次月20號，26號以後排大後月20號) ---
         function calculateIncomeDate(saleDateStr) {
             if (!saleDateStr) return '';
             let parts = saleDateStr.split('-');
-            let year = parseInt(parts[0], 10);
-            let month = parseInt(parts[1], 10) - 1;
-            let day = parseInt(parts[2], 10);
-
-            let targetDate = new Date(year, month, 20);
-            if (day <= 25) {
-                targetDate.setMonth(targetDate.getMonth() + 1);
-            } else {
-                targetDate.setMonth(targetDate.getMonth() + 2);
-            }
+            let targetDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 20);
+            if (parseInt(parts[2], 10) <= 25) targetDate.setMonth(targetDate.getMonth() + 1);
+            else targetDate.setMonth(targetDate.getMonth() + 2);
             return getLocalDateString(targetDate);
         }
 
-        // --- 電子發票轉入 & POS 邏輯 (強化版：自動匯入與彈窗提示) ---
         function importInvoiceExcel() {
             const fileInput = document.getElementById('excelFile');
             if (!fileInput || fileInput.files.length === 0) return alert('請選擇 Excel 檔案！');
-
-            const file = fileInput.files[0];
             const reader = new FileReader();
-
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonRows = XLSX.utils.sheet_to_json(worksheet);
-
-                    let invoicesMap = {};
-                    let currentInvoiceNumber = '';
+                    const jsonRows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                    let invoicesMap = {}; let currentInvoiceNumber = '';
 
                     jsonRows.forEach(row => {
                         let invKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票號碼'));
@@ -806,150 +731,124 @@
                         if (!invoicesMap[currentInvoiceNumber]) {
                             let buyerKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('買方名稱') || k.replace(/\s+/g, '').includes('客戶名稱'));
                             let dateKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票日期') || k.replace(/\s+/g, '').includes('日期'));
-                            invoicesMap[currentInvoiceNumber] = {
-                                invoiceNumber: currentInvoiceNumber,
-                                storeName: buyerKey ? String(row[buyerKey]).trim() : '未知客戶',
-                                saleDate: dateKey ? String(row[dateKey]).slice(0, 10).replace(/\//g, '-') : todayStrGlobal,
-                                items: []
-                            };
+                            invoicesMap[currentInvoiceNumber] = { invoiceNumber: currentInvoiceNumber, storeName: buyerKey ? String(row[buyerKey]).trim() : '未知客戶', saleDate: dateKey ? String(row[dateKey]).slice(0, 10).replace(/\//g, '-') : todayStrGlobal, items: [] };
                         }
 
                         let nameKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('品名'));
                         let qtyKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('數量'));
                         let subKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('小計'));
-
                         let name = nameKey ? String(row[nameKey]).trim() : '';
                         let qty = qtyKey ? parseFloat(row[qtyKey]) || 1 : 1;
                         let subtotal = subKey ? parseFloat(row[subKey]) || 0 : 0;
-
                         if (name) invoicesMap[currentInvoiceNumber].items.push({ name, qty, subtotal });
                     });
 
                     let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
                     let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
                     let products = JSON.parse(localStorage.getItem('pos_products')) || [];
-                    let categories = JSON.parse(localStorage.getItem('pos_categories')) || ['便當盒', '南北雜貨', '其他'];
-                    let defaultCategory = categories[0] || '其他';
-                    
-                    let importCount = 0;
-                    let newProductsAdded = []; 
+                    let defaultCategory = (JSON.parse(localStorage.getItem('pos_categories')) || ['其他'])[0] || '其他';
+                    let importCount = 0; let newProductsAdded = []; 
 
                     for (let invNum in invoicesMap) {
                         let inv = invoicesMap[invNum];
                         if (orders.some(o => o.invoiceNumber === inv.invoiceNumber)) continue;
-
-                        if (!customers.some(c => c.name === inv.storeName)) {
-                            customers.push({ name: inv.storeName, code: '', group: inv.storeName, taxId: '', address: '' });
-                        }
+                        if (!customers.some(c => c.name === inv.storeName)) customers.push({ name: inv.storeName, code: '', group: inv.storeName, taxId: '', address: '' });
 
                         let subTotalNoTax = 0, totalCost = 0, orderItems = [];
                         inv.items.forEach(it => {
                             let prod = products.find(p => p.name === it.name);
-                            
-                            // 💡 自動捕捉未建立的新商品
-                            if (!prod) {
-                                prod = { category: defaultCategory, name: it.name, cost: 0, unit: '只' };
-                                products.push(prod);
-                                if (!newProductsAdded.includes(it.name)) newProductsAdded.push(it.name);
-                            }
-
-                            let cost = prod ? prod.cost : 0;
-                            let subCost = it.qty * cost;
-                            orderItems.push({ name: it.name, qty: it.qty, unit: prod ? prod.unit : '只', price: it.subtotal / it.qty, cost, subtotal: it.subtotal });
+                            if (!prod) { prod = { category: defaultCategory, name: it.name, cost: 0, unit: '只' }; products.push(prod); if (!newProductsAdded.includes(it.name)) newProductsAdded.push(it.name); }
+                            let cost = prod.cost; let subCost = it.qty * cost;
+                            orderItems.push({ name: it.name, qty: it.qty, unit: prod.unit, price: it.subtotal / it.qty, cost, subtotal: it.subtotal, subCost });
                             subTotalNoTax += it.subtotal; totalCost += subCost;
                         });
 
                         let taxAmount = Math.round(subTotalNoTax * 0.05);
                         let totalAmount = Math.round(subTotalNoTax + taxAmount);
-
                         let expectedIncomeDate = calculateIncomeDate(inv.saleDate);
 
                         orders.push({ id: Date.now() + Math.random(), invoiceNumber: inv.invoiceNumber, saleDate: inv.saleDate, expectedIncomeDate, storeName: inv.storeName, items: orderItems, subTotalNoTax, taxAmount, totalAmount, totalProfit: subTotalNoTax - totalCost });
-                        
                         singleItems.push({ id: Date.now() + Math.random(), date: expectedIncomeDate, name: `[發票入帳] ${inv.storeName} (${inv.invoiceNumber})`, type: 'income', tag: '銷貨收入', amt: totalAmount, invoiceNumber: inv.invoiceNumber });
                         importCount++;
                     }
 
-                    localStorage.setItem('pos_customers', JSON.stringify(customers));
-                    localStorage.setItem('pos_products', JSON.stringify(products)); 
-                    localStorage.setItem('pos_orders', JSON.stringify(orders));
-                    
-                    saveAndUpdateCashflow();
-                    renderProductTable();
+                    localStorage.setItem('pos_customers', JSON.stringify(customers)); localStorage.setItem('pos_products', JSON.stringify(products)); localStorage.setItem('pos_orders', JSON.stringify(orders));
+                    saveAndUpdateCashflow(); renderProductTable();
 
-                    // 💡 新商品引導邏輯
                     if (newProductsAdded.length > 0) {
-                        alert(`成功轉入 ${importCount} 張發票！\n\n⚠️ 發現 ${newProductsAdded.length} 項全新商品已自動加入清單：\n${newProductsAdded.slice(0, 3).join('、')}${newProductsAdded.length > 3 ? '...等' : ''}\n\n已自動為您切換至「商品成本與分類」頁面，請記得補填未稅進價成本！`);
+                        alert(`成功轉入 ${importCount} 張發票！\n\n⚠️ 發現 ${newProductsAdded.length} 項全新商品已自動加入清單：\n${newProductsAdded.slice(0, 3).join('、')}${newProductsAdded.length > 3 ? '...等' : ''}\n\n請記得補填未稅進價成本！`);
                         switchTab('product');
-                        
-                        // 自動將第一筆新商品帶入編輯框方便直接編輯
                         let firstNew = products.find(p => p.name === newProductsAdded[0]);
                         if (firstNew) {
-                            document.getElementById('pName').value = firstNew.name;
-                            document.getElementById('pCategory').value = firstNew.category;
-                            document.getElementById('pUnit').value = firstNew.unit;
-                            document.getElementById('pCost').value = '';
-                            document.getElementById('pCost').focus();
+                            document.getElementById('pName').value = firstNew.name; document.getElementById('pCategory').value = firstNew.category;
+                            document.getElementById('pUnit').value = firstNew.unit; document.getElementById('pCost').value = ''; document.getElementById('pCost').focus();
                         }
                     } else {
-                        alert(`成功轉入 ${importCount} 張發票！\n資金排程已自動排入次月/大後月 20 號之入帳。`);
-                        switchTab('report');
+                        alert(`成功轉入 ${importCount} 張發票！`); switchTab('report');
                     }
                 } catch (err) { alert('解析 Excel 失敗：' + err.message); }
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsArrayBuffer(fileInput.files[0]);
         }
 
-        // 修改發票店家名稱
+        // --- 發票修改功能 (包含稅額微調) ---
         function updateInvoiceStoreName(invNum) {
-            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
-            let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
-            let order = orders.find(o => o.invoiceNumber === invNum);
-            if (!order) return;
-
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || []; let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
+            let order = orders.find(o => o.invoiceNumber === invNum); if (!order) return;
             let newStoreName = prompt('請輸入新的店家名稱：', order.storeName);
             if (!newStoreName || !newStoreName.trim() || newStoreName.trim() === order.storeName) return;
 
-            newStoreName = newStoreName.trim();
-            order.storeName = newStoreName;
-
-            if (!customers.some(c => c.name === newStoreName)) {
-                customers.push({ name: newStoreName, code: '', group: newStoreName, taxId: '', address: '' });
-                localStorage.setItem('pos_customers', JSON.stringify(customers));
-            }
-
-            singleItems.forEach(item => {
-                if (item.invoiceNumber === invNum || (item.name && item.name.includes(invNum))) {
-                    item.name = `[發票入帳] ${newStoreName} (${invNum})`;
-                }
-            });
-
-            localStorage.setItem('pos_orders', JSON.stringify(orders));
-            saveAndUpdateCashflow();
-            loadPOSReports();
-            renderCustomerTable();
+            newStoreName = newStoreName.trim(); order.storeName = newStoreName;
+            if (!customers.some(c => c.name === newStoreName)) { customers.push({ name: newStoreName, code: '', group: newStoreName, taxId: '', address: '' }); localStorage.setItem('pos_customers', JSON.stringify(customers)); }
+            singleItems.forEach(item => { if (item.invoiceNumber === invNum || (item.name && item.name.includes(invNum))) item.name = `[發票入帳] ${newStoreName} (${invNum})`; });
+            localStorage.setItem('pos_orders', JSON.stringify(orders)); saveAndUpdateCashflow(); loadPOSReports(); renderCustomerTable();
             alert('已成功修改店家名稱並同步更新報表與資金排程！');
         }
 
-        function loadPOSReports() {
-            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
-            const customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
-            
-            const startDate = document.getElementById('reportStartDate').value;
-            const endDate = document.getElementById('reportEndDate').value;
+        function adjustInvoiceAmount(invNum) {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let orderIndex = orders.findIndex(o => o.invoiceNumber === invNum);
+            if (orderIndex === -1) return;
+            let order = orders[orderIndex];
 
+            let newTaxStr = prompt(`【發票 ${invNum}】\n系統計算的稅額為：${order.taxAmount}\n請輸入實際發票上的正確稅額：`, order.taxAmount);
+            if (newTaxStr === null) return;
+            let newTax = parseInt(newTaxStr, 10);
+            if (isNaN(newTax)) return alert('請輸入有效的數字！');
+
+            let newTotalStr = prompt(`【發票 ${invNum}】\n系統計算的含稅總計為：${order.totalAmount}\n請輸入實際發票上的正確含稅總額：`, order.totalAmount);
+            if (newTotalStr === null) return;
+            let newTotal = parseInt(newTotalStr, 10);
+            if (isNaN(newTotal)) return alert('請輸入有效的數字！');
+
+            order.taxAmount = newTax; order.totalAmount = newTotal; orders[orderIndex] = order;
+            localStorage.setItem('pos_orders', JSON.stringify(orders));
+
+            let itemUpdated = false;
+            singleItems.forEach(item => {
+                if (item.invoiceNumber === invNum || (item.name && item.name.includes(invNum))) { item.amt = newTotal; itemUpdated = true; }
+            });
+            
+            if (itemUpdated) {
+                localStorage.setItem('cf_single_v11', JSON.stringify(singleItems));
+                if (typeof updateCashflowSystem === 'function') updateCashflowSystem();
+            }
+            loadPOSReports();
+            alert('金額微調完成！401 報表數據與預期金流已同步修正。');
+        }
+
+        function loadPOSReports() {
+            const orders = JSON.parse(localStorage.getItem('pos_orders')) || []; const customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
+            const startDate = document.getElementById('reportStartDate').value; const endDate = document.getElementById('reportEndDate').value;
             let monthlyRevenue = 0, monthlyProfit = 0, storeSummary = {}, groupSummary = {};
 
             orders.forEach(o => {
                 if ((!startDate || o.saleDate >= startDate) && (!endDate || o.saleDate <= endDate)) {
-                    monthlyRevenue += o.totalAmount;
-                    monthlyProfit += (o.totalProfit || 0);
-
+                    monthlyRevenue += o.totalAmount; monthlyProfit += (o.totalProfit || 0);
                     if (!storeSummary[o.storeName]) storeSummary[o.storeName] = { count: 0, total: 0 };
                     storeSummary[o.storeName].count += 1; storeSummary[o.storeName].total += o.totalAmount;
 
-                    let cust = customers.find(c => c.name === o.storeName);
-                    let gName = cust && cust.group ? cust.group : '獨立客戶';
+                    let cust = customers.find(c => c.name === o.storeName); let gName = cust && cust.group ? cust.group : '獨立客戶';
                     if (!groupSummary[gName]) groupSummary[gName] = { count: 0, total: 0, stores: new Set() };
                     groupSummary[gName].count += 1; groupSummary[gName].total += o.totalAmount; groupSummary[gName].stores.add(o.storeName);
                 }
@@ -959,9 +858,7 @@
             document.getElementById('monthlyProfit').innerText = `NT$ ${monthlyProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
 
             let grpTb = document.getElementById('groupSummaryTable'); grpTb.innerHTML = '';
-            for (let g in groupSummary) {
-                grpTb.innerHTML += `<tr class="border-b"><td class="p-2.5 font-bold text-blue-900">${g}</td><td class="p-2.5">${groupSummary[g].stores.size} 間分店</td><td class="p-2.5">${groupSummary[g].count} 次</td><td class="p-2.5 font-bold text-blue-600">NT$ ${groupSummary[g].total.toLocaleString()}</td></tr>`;
-            }
+            for (let g in groupSummary) grpTb.innerHTML += `<tr class="border-b"><td class="p-2.5 font-bold text-blue-900">${g}</td><td class="p-2.5">${groupSummary[g].stores.size} 間分店</td><td class="p-2.5">${groupSummary[g].count} 次</td><td class="p-2.5 font-bold text-blue-600">NT$ ${groupSummary[g].total.toLocaleString()}</td></tr>`;
 
             let stoTb = document.getElementById('storeSummaryTable'); stoTb.innerHTML = '';
             for (let s in storeSummary) {
@@ -974,22 +871,12 @@
             const orderListDiv = document.getElementById('orderList');
             if (orderListDiv) {
                 orderListDiv.innerHTML = '';
-                if (orders.length === 0) {
-                    orderListDiv.innerHTML = '<p class="text-gray-500 text-sm">目前尚無轉入之發票單據。</p>';
-                } else {
+                if (orders.length === 0) orderListDiv.innerHTML = '<p class="text-gray-500 text-sm">目前尚無轉入之發票單據。</p>';
+                else {
                     const sortedOrders = [...orders].sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
                     sortedOrders.forEach(o => {
-                        let itemsHtml = o.items.map(it => `
-                            <tr class="border-b text-xs">
-                                <td class="p-1 text-gray-700">${it.name}</td>
-                                <td class="p-1 text-center">${it.qty} ${it.unit || ''}</td>
-                                <td class="p-1 text-right">$${it.price ? it.price.toLocaleString() : 0}</td>
-                                <td class="p-1 text-right font-medium">$${it.subtotal ? it.subtotal.toLocaleString() : 0}</td>
-                            </tr>
-                        `).join('');
-
+                        let itemsHtml = o.items.map(it => `<tr class="border-b text-xs"><td class="p-1 text-gray-700">${it.name}</td><td class="p-1 text-center">${it.qty} ${it.unit || ''}</td><td class="p-1 text-right">$${it.price ? it.price.toLocaleString() : 0}</td><td class="p-1 text-right font-medium">$${it.subtotal ? it.subtotal.toLocaleString() : 0}</td></tr>`).join('');
                         let incomeDateDisplay = o.expectedIncomeDate || calculateIncomeDate(o.saleDate);
-
                         orderListDiv.innerHTML += `
                             <div class="border rounded-lg p-4 bg-gray-50 shadow-sm space-y-3">
                                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
@@ -997,32 +884,20 @@
                                         <span class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded font-bold">${o.invoiceNumber || '無號碼'}</span>
                                         <span class="font-bold text-gray-800 text-base">${o.storeName}</span>
                                         <button onclick="updateInvoiceStoreName('${o.invoiceNumber}')" class="bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs px-2 py-0.5 rounded font-bold border border-amber-300">✏️ 修改店家</button>
+                                        <button onclick="adjustInvoiceAmount('${o.invoiceNumber}')" class="bg-purple-100 text-purple-800 hover:bg-purple-200 text-xs px-2 py-0.5 rounded font-bold border border-purple-300">💰 微調金額</button>
                                     </div>
-                                    <div class="text-xs text-gray-500 space-x-2">
-                                        <span>發票日期：<strong class="text-gray-700">${o.saleDate}</strong></span>
-                                        <span>➔ 預計金流入帳：<strong class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">${incomeDateDisplay}</strong></span>
-                                    </div>
+                                    <div class="text-xs text-gray-500 space-x-2"><span>發票日期：<strong class="text-gray-700">${o.saleDate}</strong></span><span>➔ 預計金流入帳：<strong class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">${incomeDateDisplay}</strong></span></div>
                                 </div>
                                 <div class="overflow-x-auto">
                                     <table class="w-full text-left bg-white rounded border">
-                                        <thead>
-                                            <tr class="bg-gray-100 text-gray-600 text-xs">
-                                                <th class="p-1.5">品名</th>
-                                                <th class="p-1.5 text-center w-16">數量</th>
-                                                <th class="p-1.5 text-right w-20">單價</th>
-                                                <th class="p-1.5 text-right w-24">小計</th>
-                                            </tr>
-                                        </thead>
+                                        <thead><tr class="bg-gray-100 text-gray-600 text-xs"><th class="p-1.5">品名</th><th class="p-1.5 text-center w-16">數量</th><th class="p-1.5 text-right w-20">單價</th><th class="p-1.5 text-right w-24">小計</th></tr></thead>
                                         <tbody>${itemsHtml}</tbody>
                                     </table>
                                 </div>
                                 <div class="flex justify-end gap-4 text-xs pt-1 border-t font-semibold text-gray-700">
-                                    <span>銷售額 (未稅)：$${(o.subTotalNoTax || 0).toLocaleString()}</span>
-                                    <span>稅額：$${(o.taxAmount || 0).toLocaleString()}</span>
-                                    <span class="text-blue-800 font-bold text-sm">總計 (含稅)：$${(o.totalAmount || 0).toLocaleString()}</span>
+                                    <span>銷售額 (未稅)：$${(o.subTotalNoTax || 0).toLocaleString()}</span><span>稅額：$${(o.taxAmount || 0).toLocaleString()}</span><span class="text-blue-800 font-bold text-sm">總計 (含稅)：$${(o.totalAmount || 0).toLocaleString()}</span>
                                 </div>
-                            </div>
-                        `;
+                            </div>`;
                     });
                 }
             }
@@ -1030,27 +905,14 @@
 
         function renderReportChart(orders, startDate, endDate) {
             let filteredOrders = orders.filter(o => (!startDate || o.saleDate >= startDate) && (!endDate || o.saleDate <= endDate));
-            
             let datesData = {};
-            filteredOrders.forEach(o => {
-                let d = o.saleDate;
-                if (!datesData[d]) datesData[d] = 0;
-                datesData[d] += o.totalAmount;
-            });
-
-            let sortedDates = Object.keys(datesData).sort();
-            let chartData = sortedDates.map(d => datesData[d]);
-
+            filteredOrders.forEach(o => { let d = o.saleDate; if (!datesData[d]) datesData[d] = 0; datesData[d] += o.totalAmount; });
+            let sortedDates = Object.keys(datesData).sort(); let chartData = sortedDates.map(d => datesData[d]);
             const ctx = document.getElementById('reportChart').getContext('2d');
             if (barChartInstance) barChartInstance.destroy();
-            barChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: { labels: sortedDates, datasets: [{ label: '每日銷售額 (含稅)', data: chartData, backgroundColor: '#2563eb' }] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+            barChartInstance = new Chart(ctx, { type: 'bar', data: { labels: sortedDates, datasets: [{ label: '每日銷售額 (含稅)', data: chartData, backgroundColor: '#2563eb' }] }, options: { responsive: true, maintainAspectRatio: false } });
         }
 
-        // --- 商品與客戶基礎資料渲染與操作 ---
         function renderCategoryDropdowns() {
             const cats = JSON.parse(localStorage.getItem('pos_categories')) || [];
             let sel = document.getElementById('pCategory'); if (sel) sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -1058,8 +920,7 @@
         }
 
         function addCategory() {
-            let cat = document.getElementById('newCategoryName').value.trim();
-            if (!cat) return;
+            let cat = document.getElementById('newCategoryName').value.trim(); if (!cat) return;
             let cats = JSON.parse(localStorage.getItem('pos_categories')) || [];
             cats.push(cat); localStorage.setItem('pos_categories', JSON.stringify(cats));
             document.getElementById('newCategoryName').value = ''; renderCategoryDropdowns();
@@ -1067,152 +928,89 @@
 
         function renderCustomerTable() {
             let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
-            let tb = document.getElementById('customerTableBody');
-            tb.innerHTML = customers.map(c => `<tr class="border-b"><td class="p-2.5 font-semibold">${c.name}</td><td class="p-2.5">${c.code || '-'}</td><td class="p-2.5 text-blue-800">${c.group || '獨立客戶'}</td><td class="p-2.5">${c.taxId || ''}</td><td class="p-2.5">${c.address || ''}</td><td class="p-2.5 text-center"><button onclick="deleteCustomer('${c.name}')" class="text-red-500 hover:underline text-xs">刪除</button></td></tr>`).join('');
+            document.getElementById('customerTableBody').innerHTML = customers.map(c => `<tr class="border-b"><td class="p-2.5 font-semibold">${c.name}</td><td class="p-2.5">${c.code || '-'}</td><td class="p-2.5 text-blue-800">${c.group || '獨立客戶'}</td><td class="p-2.5">${c.taxId || ''}</td><td class="p-2.5">${c.address || ''}</td><td class="p-2.5 text-center"><button onclick="deleteCustomer('${c.name}')" class="text-red-500 hover:underline text-xs">刪除</button></td></tr>`).join('');
         }
 
         function renderProductTable() {
             let products = JSON.parse(localStorage.getItem('pos_products')) || [];
-            let tb = document.getElementById('productTableBody');
-            if (!tb) return;
-
+            let tb = document.getElementById('productTableBody'); if (!tb) return;
             tb.innerHTML = products.map(p => {
-                let costDisplay = (!p.cost || p.cost === 0) 
-                    ? `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-bold">NT$ 0 (未填成本)</span>` 
-                    : `NT$ ${p.cost}`;
-                
-                return `<tr class="border-b hover:bg-gray-50">
-                    <td class="p-2.5">${p.category}</td>
-                    <td class="p-2.5 font-semibold">${p.name}</td>
-                    <td class="p-2.5">${p.unit}</td>
-                    <td class="p-2.5">${costDisplay}</td>
-                    <td class="p-2.5 text-center">
-                        <button onclick="editProduct('${p.name}')" class="text-blue-600 hover:underline text-xs mr-2">編輯</button>
-                        <button onclick="deleteProduct('${p.name}')" class="text-red-500 hover:underline text-xs">刪除</button>
-                    </td>
-                </tr>`;
+                let costDisplay = (!p.cost || p.cost === 0) ? `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-bold">NT$ 0 (未填成本)</span>` : `NT$ ${p.cost}`;
+                return `<tr class="border-b hover:bg-gray-50"><td class="p-2.5">${p.category}</td><td class="p-2.5 font-semibold">${p.name}</td><td class="p-2.5">${p.unit}</td><td class="p-2.5">${costDisplay}</td><td class="p-2.5 text-center"><button onclick="editProduct('${p.name}')" class="text-blue-600 hover:underline text-xs mr-2">編輯</button><button onclick="deleteProduct('${p.name}')" class="text-red-500 hover:underline text-xs">刪除</button></td></tr>`;
             }).join('');
         }
 
         function editProduct(name) {
-            let products = JSON.parse(localStorage.getItem('pos_products')) || [];
-            let prod = products.find(p => p.name === name);
-            if (!prod) return;
-
-            document.getElementById('pCategory').value = prod.category;
-            document.getElementById('pName').value = prod.name;
-            document.getElementById('pCost').value = prod.cost || '';
-            document.getElementById('pUnit').value = prod.unit || '只';
+            let prod = (JSON.parse(localStorage.getItem('pos_products')) || []).find(p => p.name === name); if (!prod) return;
+            document.getElementById('pCategory').value = prod.category; document.getElementById('pName').value = prod.name;
+            document.getElementById('pCost').value = prod.cost || ''; document.getElementById('pUnit').value = prod.unit || '只';
             document.getElementById('pCost').focus();
         }
 
         function saveCustomer() {
-            let name = document.getElementById('cName').value.trim();
-            if (!name) return alert('請輸入名稱！');
+            let name = document.getElementById('cName').value.trim(); if (!name) return alert('請輸入名稱！');
             let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
             customers.push({ name, code: document.getElementById('cCode').value.trim(), group: document.getElementById('cGroup').value.trim() || '獨立客戶', taxId: document.getElementById('cTaxId').value.trim(), address: document.getElementById('cAddress').value.trim() });
-            localStorage.setItem('pos_customers', JSON.stringify(customers));
-            renderCustomerTable(); resetCustomerForm();
-        }
-
-        function resetCustomerForm() {
+            localStorage.setItem('pos_customers', JSON.stringify(customers)); renderCustomerTable();
             document.getElementById('cName').value = ''; document.getElementById('cCode').value = ''; document.getElementById('cGroup').value = ''; document.getElementById('cTaxId').value = ''; document.getElementById('cAddress').value = '';
         }
 
+        // --- 商品成本修復 (包含回溯訂單更新) ---
         function saveProduct() {
             let name = document.getElementById('pName').value.trim();
             if (!name) return alert('請輸入商品名稱！');
             let products = JSON.parse(localStorage.getItem('pos_products')) || [];
-            
             let existingIdx = products.findIndex(p => p.name === name);
-            let productData = { 
-                category: document.getElementById('pCategory').value, 
-                name, 
-                cost: parseFloat(document.getElementById('pCost').value) || 0, 
-                unit: document.getElementById('pUnit').value 
-            };
+            let newCost = parseFloat(document.getElementById('pCost').value) || 0; 
             
-            if (existingIdx !== -1) {
-                products[existingIdx] = productData;
-            } else {
-                products.push(productData);
+            let productData = { category: document.getElementById('pCategory').value, name, cost: newCost, unit: document.getElementById('pUnit').value };
+            if (existingIdx !== -1) products[existingIdx] = productData;
+            else products.push(productData);
+            localStorage.setItem('pos_products', JSON.stringify(products));
+
+            // 回溯更新訂單毛利
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let ordersUpdated = false;
+            orders.forEach(order => {
+                let orderNeedsUpdate = false; let newTotalCost = 0;
+                order.items.forEach(item => {
+                    if (item.name === name) { item.cost = newCost; item.subCost = item.qty * newCost; orderNeedsUpdate = true; }
+                    newTotalCost += (item.subCost || 0);
+                });
+                if (orderNeedsUpdate) { order.totalProfit = order.subTotalNoTax - newTotalCost; ordersUpdated = true; }
+            });
+
+            if (ordersUpdated) {
+                localStorage.setItem('pos_orders', JSON.stringify(orders));
+                if (typeof loadPOSReports === 'function') loadPOSReports();
             }
 
-            localStorage.setItem('pos_products', JSON.stringify(products));
             renderProductTable(); 
-            resetProductForm();
-            alert(`已成功儲存商品：${name}`);
-        }
-
-        function resetProductForm() {
             document.getElementById('pName').value = ''; document.getElementById('pCost').value = '';
+            alert(`已成功儲存商品：${name}，並同步更新相關訂單的成本與毛利！`);
         }
 
+        // --- 防呆機制 ---
         function deleteCustomer(name) {
+            if (!confirm(`確定要刪除客戶「${name}」嗎？刪除後將無法復原！`)) return;
             let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
             localStorage.setItem('pos_customers', JSON.stringify(customers.filter(c => c.name !== name)));
             renderCustomerTable();
         }
 
         function deleteProduct(name) {
+            if (!confirm(`確定要刪除商品「${name}」嗎？刪除後將無法復原！`)) return;
             let products = JSON.parse(localStorage.getItem('pos_products')) || [];
             localStorage.setItem('pos_products', JSON.stringify(products.filter(p => p.name !== name)));
             renderProductTable();
         }
 
-        // --- 雲端與本地備份 ---
-        async function saveToCloud() {
-            const payload = {
-                cf_single_v11: localStorage.getItem('cf_single_v11'),
-                cf_recurring_v11: localStorage.getItem('cf_recurring_v11'),
-                cf_anchor_date_v11: localStorage.getItem('cf_anchor_date_v11'),
-                cf_anchor_bank_v11: localStorage.getItem('cf_anchor_bank_v11'),
-                cf_anchor_cash_v11: localStorage.getItem('cf_anchor_cash_v11'),
-                pos_categories: localStorage.getItem('pos_categories'),
-                pos_products: localStorage.getItem('pos_products'),
-                pos_customers: localStorage.getItem('pos_customers'),
-                pos_orders: localStorage.getItem('pos_orders')
-            };
-
-            try {
-                let token = getAuthToken();
-                let res = await fetch(`https://api.github.com/gists/${KEY_PARTS.GIST_ID}`, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ files: { "dj_full_system_data.json": { content: JSON.stringify(payload, null, 2) } } })
-                });
-                if (res.ok) alert('☁️ 整合數據成功同步至雲端！');
-                else alert('雲端儲存失敗，請檢查金鑰！');
-            } catch (err) { alert('連線雲端發生錯誤！'); }
-        }
-
-        async function loadFromCloud() {
-            try {
-                let token = getAuthToken();
-                let res = await fetch(`https://api.github.com/gists/${KEY_PARTS.GIST_ID}`, { headers: { 'Authorization': `token ${token}` } });
-                if (res.ok) {
-                    let json = await res.json();
-                    let file = json.files["dj_full_system_data.json"];
-                    if (file) {
-                        let data = JSON.parse(file.content);
-                        for (let k in data) if (data[k]) localStorage.setItem(k, data[k]);
-                        alert('☁️ 已從雲端成功載入最新整合資料！');
-                        location.reload();
-                    }
-                }
-            } catch (err) { alert('雲端載入失敗！'); }
-        }
-
+        // --- 本地備份匯出匯入 ---
         function exportLocalBackup() {
             const backup = {};
-            for (let i = 0; i < localStorage.length; i++) {
-                let k = localStorage.key(i);
-                backup[k] = localStorage.getItem(k);
-            }
-            const a = document.createElement('a');
-            a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
-            a.download = `dj_full_system_backup_${todayStrGlobal}.json`;
-            a.click();
+            for (let i = 0; i < localStorage.length; i++) { let k = localStorage.key(i); backup[k] = localStorage.getItem(k); }
+            const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
+            a.download = `dj_full_system_backup_${todayStrGlobal}.json`; a.click();
         }
 
         function importLocalBackup(e) {
@@ -1224,82 +1022,50 @@
                     for (let k in data) localStorage.setItem(k, data[k]);
                     alert('還原成功！'); location.reload();
                 } catch (err) { alert('備份格式錯誤！'); }
-            };
-            reader.readAsText(file);
+            }; reader.readAsText(file);
         }
 
-        // --- 對帳單 Modal 邏輯 ---
+        // --- 報表對帳單 Modals ---
         function openStatementModal(storeName) {
             currentStatementStore = storeName;
-            
             document.getElementById('startDate').value = document.getElementById('reportStartDate').value;
             document.getElementById('endDate').value = document.getElementById('reportEndDate').value;
-            
-            generateStatementData();
-            document.getElementById('statementModal').classList.remove('hidden');
+            generateStatementData(); document.getElementById('statementModal').classList.remove('hidden');
         }
-
         function closeStatementModal() { document.getElementById('statementModal').classList.add('hidden'); }
-
         function generateStatementData() {
-            const store = currentStatementStore;
-            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
-            const customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
-            const cust = customers.find(c => c.name === store) || {};
-
-            document.getElementById('stShortName').innerText = store;
-            document.getElementById('stStoreName').innerText = store;
-            document.getElementById('stCustomerCode').innerText = cust.code || '20000002';
-            document.getElementById('stTaxId').innerText = cust.taxId || '';
+            const store = currentStatementStore; const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            const cust = (JSON.parse(localStorage.getItem('pos_customers')) || []).find(c => c.name === store) || {};
+            document.getElementById('stShortName').innerText = store; document.getElementById('stStoreName').innerText = store;
+            document.getElementById('stCustomerCode').innerText = cust.code || '20000002'; document.getElementById('stTaxId').innerText = cust.taxId || '';
             document.getElementById('stDate').innerText = todayStrGlobal;
-
-            const start = document.getElementById('startDate').value;
-            const end = document.getElementById('endDate').value;
+            const start = document.getElementById('startDate').value; const end = document.getElementById('endDate').value;
 
             let filtered = orders.filter(o => o.storeName === store && o.saleDate >= start && o.saleDate <= end);
             let tb = document.getElementById('stItemTableBody'); tb.innerHTML = '';
-
             let totalNoTax = 0, totalTax = 0, grandTotal = 0;
             filtered.forEach(o => {
                 tb.innerHTML += `<tr class="text-center hover:bg-gray-50"><td class="p-2 border border-gray-400">${o.saleDate}</td><td class="p-2 border border-gray-400">${o.invoiceNumber || '-'}</td><td class="p-2 border border-gray-400 text-right">NT$ ${(o.subTotalNoTax || 0).toFixed(2)}</td><td class="p-2 border border-gray-400 text-right">NT$ ${(o.taxAmount || 0)}</td><td class="p-2 border border-gray-400 text-right">NT$ ${(o.subTotalNoTax || 0).toFixed(2)}</td><td class="p-2 border border-gray-400 text-right font-bold">NT$ ${o.totalAmount.toLocaleString()}</td></tr>`;
                 totalNoTax += (o.subTotalNoTax || 0); totalTax += (o.taxAmount || 0); grandTotal += o.totalAmount;
             });
-
-            document.getElementById('stTotalNoTax').innerText = `NT$ ${totalNoTax.toFixed(2)}`;
-            document.getElementById('stTotalTax').innerText = `NT$ ${totalTax}`;
-            document.getElementById('stTotalTaxable').innerText = `NT$ ${totalNoTax.toFixed(2)}`;
-            document.getElementById('stGrandTotal').innerText = `NT$ ${grandTotal.toLocaleString()}`;
+            document.getElementById('stTotalNoTax').innerText = `NT$ ${totalNoTax.toFixed(2)}`; document.getElementById('stTotalTax').innerText = `NT$ ${totalTax}`;
+            document.getElementById('stTotalTaxable').innerText = `NT$ ${totalNoTax.toFixed(2)}`; document.getElementById('stGrandTotal').innerText = `NT$ ${grandTotal.toLocaleString()}`;
         }
-
         function printStatement() {
-            let contents = document.getElementById('statementPrintArea').innerHTML;
-            let orig = document.body.innerHTML;
+            let contents = document.getElementById('statementPrintArea').innerHTML; let orig = document.body.innerHTML;
             document.body.innerHTML = `<div style="padding:20px; background-color:#ffffd9;">${contents}</div>`;
-            window.print();
-            document.body.innerHTML = orig;
-            location.reload();
+            window.print(); document.body.innerHTML = orig; location.reload();
         }
-
         function open401Modal() { document.getElementById('tax401Modal').classList.remove('hidden'); }
         function close401Modal() { document.getElementById('tax401Modal').classList.add('hidden'); }
         function confirmExport401() {
-            const start = document.getElementById('taxStart').value;
-            const end = document.getElementById('taxEnd').value;
+            const start = document.getElementById('taxStart').value; const end = document.getElementById('taxEnd').value;
             if (!start || !end) return alert('請選擇完整日期！');
-
-            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
-            let rangeOrders = orders.filter(o => o.saleDate >= start && o.saleDate <= end);
+            let rangeOrders = (JSON.parse(localStorage.getItem('pos_orders')) || []).filter(o => o.saleDate >= start && o.saleDate <= end);
             if (rangeOrders.length === 0) return alert('此區間無發票資料！');
-
-            let exportData = rangeOrders.map((o, idx) => ({
-                "序號": idx + 1, "發票日期": o.saleDate, "發票號碼": o.invoiceNumber || "", "買方名稱": o.storeName, "銷售額(未稅)": o.subTotalNoTax, "營業稅額": o.taxAmount, "總計(含稅)": o.totalAmount
-            }));
-
-            const ws = XLSX.utils.json_to_sheet(exportData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "401營業稅申報");
-            XLSX.writeFile(wb, `DJ社_${start}_至_${end}_401申報表.xlsx`);
-            close401Modal();
+            let exportData = rangeOrders.map((o, idx) => ({ "序號": idx + 1, "發票日期": o.saleDate, "發票號碼": o.invoiceNumber || "", "買方名稱": o.storeName, "銷售額(未稅)": o.subTotalNoTax, "營業稅額": o.taxAmount, "總計(含稅)": o.totalAmount }));
+            const ws = XLSX.utils.json_to_sheet(exportData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "401營業稅申報");
+            XLSX.writeFile(wb, `DJ社_${start}_至_${end}_401申報表.xlsx`); close401Modal();
         }
     </script>
 </body>
