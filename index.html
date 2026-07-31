@@ -831,7 +831,11 @@
                     let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
                     let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
                     let products = JSON.parse(localStorage.getItem('pos_products')) || [];
+                    let categories = JSON.parse(localStorage.getItem('pos_categories')) || ['便當盒', '南北雜貨', '其他'];
+                    let defaultCategory = categories[0] || '其他';
+                    
                     let importCount = 0;
+                    let newProductsAdded = []; // 紀錄新自動新增的商品名稱
 
                     for (let invNum in invoicesMap) {
                         let inv = invoicesMap[invNum];
@@ -844,6 +848,14 @@
                         let subTotalNoTax = 0, totalCost = 0, orderItems = [];
                         inv.items.forEach(it => {
                             let prod = products.find(p => p.name === it.name);
+                            
+                            // 💡 自動偵測：若產品不存在，自動新增至商品清單中（預設成本為 0），方便日後補填
+                            if (!prod) {
+                                prod = { category: defaultCategory, name: it.name, cost: 0, unit: '只' };
+                                products.push(prod);
+                                if (!newProductsAdded.includes(it.name)) newProductsAdded.push(it.name);
+                            }
+
                             let cost = prod ? prod.cost : 0;
                             let subCost = it.qty * cost;
                             orderItems.push({ name: it.name, qty: it.qty, unit: prod ? prod.unit : '只', price: it.subtotal / it.qty, cost, subtotal: it.subtotal });
@@ -864,14 +876,23 @@
                     }
 
                     localStorage.setItem('pos_customers', JSON.stringify(customers));
+                    localStorage.setItem('pos_products', JSON.stringify(products)); // 更新商品資料庫
                     localStorage.setItem('pos_orders', JSON.stringify(orders));
+                    
+                    renderProductTable(); // 重新渲染商品表格
                     saveAndUpdateCashflow();
 
-                    alert(`成功轉入 ${importCount} 張發票！\n資金排程已自動為您排入次月/次次月 20 號之入帳。`);
-                    switchTab('report');
+                    // 💡 如果有偵測到新商品，自動提示並跳轉到「商品成本與分類」頁面
+                    if (newProductsAdded.length > 0) {
+                        alert(`成功轉入 ${importCount} 張發票！\n\n⚠️ 系統自動偵測並新增了 ${newProductsAdded.length} 項新商品：\n${newProductsAdded.slice(0, 5).join('、')}${newProductsAdded.length > 5 ? '...等' : ''}\n\n已為您切換至「商品成本與分類」頁面，請記得設定這些商品的分類與未稅進價成本！`);
+                        switchTab('product');
+                    } else {
+                        alert(`成功轉入 ${importCount} 張發票！\n資金排程已自動為您排入次月/次次月 20 號之入帳。`);
+                        switchTab('report');
+                    }
                 } catch (err) { alert('解析 Excel 失敗：' + err.message); }
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsBuffer(file);
         }
 
         // 修改發票店家名稱
@@ -1051,7 +1072,11 @@
         function renderProductTable() {
             let products = JSON.parse(localStorage.getItem('pos_products')) || [];
             let tb = document.getElementById('productTableBody');
-            tb.innerHTML = products.map(p => `<tr class="border-b"><td class="p-2.5">${p.category}</td><td class="p-2.5 font-semibold">${p.name}</td><td class="p-2.5">${p.unit}</td><td class="p-2.5">NT$ ${p.cost}</td><td class="p-2.5 text-center"><button onclick="deleteProduct('${p.name}')" class="text-red-500 hover:underline text-xs">刪除</button></td></tr>`).join('');
+            tb.innerHTML = products.map(p => {
+                // 💡 如果成本為 0，加紅字標示方便提醒使用者補充進價成本
+                let costDisplay = p.cost === 0 ? `<span class="text-red-600 font-bold">NT$ 0 (未填)</span>` : `NT$ ${p.cost}`;
+                return `<tr class="border-b"><td class="p-2.5">${p.category}</td><td class="p-2.5 font-semibold">${p.name}</td><td class="p-2.5">${p.unit}</td><td class="p-2.5">${costDisplay}</td><td class="p-2.5 text-center"><button onclick="deleteProduct('${p.name}')" class="text-red-500 hover:underline text-xs">刪除</button></td></tr>`;
+            }).join('');
         }
 
         function saveCustomer() {
@@ -1071,7 +1096,17 @@
             let name = document.getElementById('pName').value.trim();
             if (!name) return alert('請輸入商品名稱！');
             let products = JSON.parse(localStorage.getItem('pos_products')) || [];
-            products.push({ category: document.getElementById('pCategory').value, name, cost: parseFloat(document.getElementById('pCost').value) || 0, unit: document.getElementById('pUnit').value });
+            
+            // 💡 若已有同名商品則更新，沒有則新增
+            let existingIdx = products.findIndex(p => p.name === name);
+            let productData = { category: document.getElementById('pCategory').value, name, cost: parseFloat(document.getElementById('pCost').value) || 0, unit: document.getElementById('pUnit').value };
+            
+            if (existingIdx !== -1) {
+                products[existingIdx] = productData;
+            } else {
+                products.push(productData);
+            }
+
             localStorage.setItem('pos_products', JSON.stringify(products));
             renderProductTable(); resetProductForm();
         }
