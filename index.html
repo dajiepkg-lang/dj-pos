@@ -363,7 +363,6 @@
 
     <!-- 報表 Modals... -->
     <div id="tax401Modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4">
-        <!-- 省略部分 Modal HTML 保持與之前一致 -->
         <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
             <button onclick="close401Modal()" class="absolute top-4 right-4 text-gray-400 font-bold">✕</button>
             <h2 class="text-xl font-bold mb-3 border-b pb-2">📑 匯出 401 營業稅申報報表</h2>
@@ -460,7 +459,7 @@
             if (!localStorage.getItem('pos_customers')) localStorage.setItem('pos_customers', JSON.stringify([{ name: '台灣卜蜂企業股份有限公司', code: '20000002', group: '台灣卜蜂企業股份有限公司', taxId: '36514783', address: '' }]));
         }
 
-        // --- GAS 雲端連線 (取代 GitHub) ---
+        // --- GAS 雲端連線 ---
         async function saveToCloud() {
             if (API_URL === "YOUR_WEB_APP_URL_HERE" || !API_URL) return alert("請先在程式碼中設定 API_URL！");
             const btn = document.getElementById('btn-sync');
@@ -475,7 +474,6 @@
                     anchorBank: anchorBank,
                     anchorCash: anchorCash
                 },
-                // 若後端 GAS 更新，也可將發票資料一併上傳。目前將所有 LocalStorage 的資料全部包成字串方便傳送
                 fullBackup: {
                     pos_categories: localStorage.getItem('pos_categories'),
                     pos_products: localStorage.getItem('pos_products'),
@@ -515,7 +513,6 @@
                 const data = await response.json();
                 
                 if (data.status === 'success') {
-                    // 若後端有支援完整回傳，將資料寫入 localStorage
                     if (data.singleItems) localStorage.setItem('cf_single_v11', JSON.stringify(data.singleItems));
                     if (data.recurringItems) localStorage.setItem('cf_recurring_v11', JSON.stringify(data.recurringItems));
                     if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
@@ -1005,7 +1002,7 @@
             renderProductTable();
         }
 
-        // --- 本地備份匯出匯入 ---
+        // --- 本地備份匯出匯入 (包含自動偵測缺漏商品) ---
         function exportLocalBackup() {
             const backup = {};
             for (let i = 0; i < localStorage.length; i++) { let k = localStorage.key(i); backup[k] = localStorage.getItem(k); }
@@ -1014,15 +1011,64 @@
         }
 
         function importLocalBackup(e) {
-            const file = e.target.files[0]; if (!file) return;
+            const file = e.target.files[0]; 
+            if (!file) return;
             const reader = new FileReader();
+            
             reader.onload = function(evt) {
                 try {
                     const data = JSON.parse(evt.target.result);
                     for (let k in data) localStorage.setItem(k, data[k]);
-                    alert('還原成功！'); location.reload();
-                } catch (err) { alert('備份格式錯誤！'); }
-            }; reader.readAsText(file);
+                    
+                    let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+                    let products = JSON.parse(localStorage.getItem('pos_products')) || [];
+                    let categories = JSON.parse(localStorage.getItem('pos_categories')) || ['其他'];
+                    let defaultCategory = categories[0] || '其他';
+                    let missingProducts = [];
+
+                    orders.forEach(order => {
+                        if(order.items) {
+                            order.items.forEach(item => {
+                                if (!products.some(p => p.name === item.name)) {
+                                    products.push({ category: defaultCategory, name: item.name, cost: 0, unit: item.unit || '只' });
+                                    if (!missingProducts.includes(item.name)) missingProducts.push(item.name);
+                                }
+                            });
+                        }
+                    });
+
+                    if (missingProducts.length > 0) {
+                        localStorage.setItem('pos_products', JSON.stringify(products));
+                        
+                        alert(`還原成功！\n\n⚠️ 系統偵測到歷史紀錄中有 ${missingProducts.length} 項商品未建立在成本資料庫中，已自動為您補上：\n${missingProducts.slice(0, 3).join('、')}${missingProducts.length > 3 ? '...等' : ''}\n\n已自動切換至「商品成本」頁面，請記得補填未稅進價成本！`);
+                        
+                        singleItems = JSON.parse(localStorage.getItem('cf_single_v11')) || [];
+                        recurringItems = JSON.parse(localStorage.getItem('cf_recurring_v11')) || [];
+                        anchorDate = localStorage.getItem('cf_anchor_date_v11') || todayStrGlobal;
+                        anchorBank = parseFloat(localStorage.getItem('cf_anchor_bank_v11')) || 0;
+                        anchorCash = parseFloat(localStorage.getItem('cf_anchor_cash_v11')) || 0;
+                        
+                        renderProductTable();
+                        switchTab('product');
+                        
+                        let firstNew = products.find(p => p.name === missingProducts[0]);
+                        if (firstNew) {
+                            document.getElementById('pName').value = firstNew.name;
+                            document.getElementById('pCategory').value = firstNew.category;
+                            document.getElementById('pUnit').value = firstNew.unit;
+                            document.getElementById('pCost').value = '';
+                            document.getElementById('pCost').focus();
+                        }
+                    } else {
+                        alert('還原成功！');
+                        location.reload(); 
+                    }
+                    e.target.value = '';
+                } catch (err) { 
+                    alert('備份格式錯誤！'); 
+                }
+            }; 
+            reader.readAsText(file);
         }
 
         // --- 報表對帳單 Modals ---
