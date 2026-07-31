@@ -801,7 +801,7 @@
 
                         orders.push({ id: Date.now() + Math.random(), invoiceNumber: inv.invoiceNumber, saleDate: inv.saleDate, storeName: inv.storeName, items: orderItems, subTotalNoTax, taxAmount, totalAmount, totalProfit: subTotalNoTax - totalCost });
                         
-                        singleItems.push({ id: Date.now() + Math.random(), date: inv.saleDate, name: `[發票] ${inv.storeName} (${inv.invoiceNumber})`, type: 'income', tag: '銷貨收入', amt: totalAmount });
+                        singleItems.push({ id: Date.now() + Math.random(), date: inv.saleDate, name: `[發票] ${inv.storeName} (${inv.invoiceNumber})`, type: 'income', tag: '銷貨收入', amt: totalAmount, invoiceNumber: inv.invoiceNumber });
                         importCount++;
                     }
 
@@ -814,6 +814,37 @@
                 } catch (err) { alert('解析 Excel 失敗：' + err.message); }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        // 修改發票店家名稱
+        function updateInvoiceStoreName(invNum) {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
+            let order = orders.find(o => o.invoiceNumber === invNum);
+            if (!order) return;
+
+            let newStoreName = prompt('請輸入新的店家名稱：', order.storeName);
+            if (!newStoreName || !newStoreName.trim() || newStoreName.trim() === order.storeName) return;
+
+            newStoreName = newStoreName.trim();
+            order.storeName = newStoreName;
+
+            if (!customers.some(c => c.name === newStoreName)) {
+                customers.push({ name: newStoreName, code: '', group: newStoreName, taxId: '', address: '' });
+                localStorage.setItem('pos_customers', JSON.stringify(customers));
+            }
+
+            singleItems.forEach(item => {
+                if (item.invoiceNumber === invNum || (item.name && item.name.includes(invNum))) {
+                    item.name = `[發票] ${newStoreName} (${invNum})`;
+                }
+            });
+
+            localStorage.setItem('pos_orders', JSON.stringify(orders));
+            saveAndUpdateCashflow();
+            loadPOSReports();
+            renderCustomerTable();
+            alert('已成功修改店家名稱並同步更新報表與資金排程！');
         }
 
         function loadPOSReports() {
@@ -875,9 +906,10 @@
                         orderListDiv.innerHTML += `
                             <div class="border rounded-lg p-4 bg-gray-50 shadow-sm space-y-3">
                                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
-                                    <div>
-                                        <span class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded font-bold mr-2">${o.invoiceNumber || '無號碼'}</span>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded font-bold">${o.invoiceNumber || '無號碼'}</span>
                                         <span class="font-bold text-gray-800 text-base">${o.storeName}</span>
+                                        <button onclick="updateInvoiceStoreName('${o.invoiceNumber}')" class="bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs px-2 py-0.5 rounded font-bold border border-amber-300">✏️ 修改店家</button>
                                     </div>
                                     <div class="text-xs text-gray-500">
                                         交易日期：<span class="font-semibold text-gray-700">${o.saleDate}</span>
