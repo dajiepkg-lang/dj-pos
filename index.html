@@ -72,6 +72,7 @@
                     </div>
                     <button onclick="setReportPeriod('closing')" class="bg-indigo-100 text-indigo-800 hover:bg-indigo-200 text-xs px-2.5 py-1.5 rounded font-bold border border-indigo-300">⚡ 本期關帳 (上月26~本月25)</button>
                     <button onclick="setReportPeriod('natural')" class="bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs px-2.5 py-1.5 rounded font-bold border">📅 當自然月 (1~月底)</button>
+                    <button onclick="forceRecalculateAllProfits()" class="bg-red-100 text-red-800 hover:bg-red-200 text-xs px-2.5 py-1.5 rounded font-bold border border-red-300 shadow">🔄 點我強制校正歷史毛利</button>
                 </div>
                 <button onclick="open401Modal()" class="bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg font-bold hover:bg-emerald-800 shadow">
                     📑 匯出 401 營業稅申報總月報表
@@ -754,8 +755,16 @@
                         let subTotalNoTax = 0, totalCost = 0, orderItems = [];
                         inv.items.forEach(it => {
                             let prod = products.find(p => p.name === it.name);
-                            if (!prod) { prod = { category: defaultCategory, name: it.name, cost: 0, unit: '只' }; products.push(prod); if (!newProductsAdded.includes(it.name)) newProductsAdded.push(it.name); }
-                            let cost = prod.cost; let subCost = it.qty * cost;
+                            // 💡 修改：不但檢查商品是否存在，也檢查成本是否為 0 或沒填
+                            if (!prod || !prod.cost || prod.cost === 0) { 
+                                if (!prod) {
+                                    prod = { category: defaultCategory, name: it.name, cost: 0, unit: '只' }; 
+                                    products.push(prod); 
+                                }
+                                if (!newProductsAdded.includes(it.name)) newProductsAdded.push(it.name); 
+                            }
+                            let cost = prod.cost || 0; 
+                            let subCost = it.qty * cost;
                             orderItems.push({ name: it.name, qty: it.qty, unit: prod.unit, price: it.subtotal / it.qty, cost, subtotal: it.subtotal, subCost });
                             subTotalNoTax += it.subtotal; totalCost += subCost;
                         });
@@ -773,12 +782,12 @@
                     saveAndUpdateCashflow(); renderProductTable();
 
                     if (newProductsAdded.length > 0) {
-                        alert(`成功轉入 ${importCount} 張發票！\n\n⚠️ 發現 ${newProductsAdded.length} 項全新商品已自動加入清單：\n${newProductsAdded.slice(0, 3).join('、')}${newProductsAdded.length > 3 ? '...等' : ''}\n\n請記得補填未稅進價成本！`);
+                        alert(`成功轉入 ${importCount} 張發票！\n\n⚠️ 發現 ${newProductsAdded.length} 項全新或「未填成本」的商品：\n${newProductsAdded.slice(0, 3).join('、')}${newProductsAdded.length > 3 ? '...等' : ''}\n\n請記得補填未稅進價成本！`);
                         switchTab('product');
                         let firstNew = products.find(p => p.name === newProductsAdded[0]);
                         if (firstNew) {
                             document.getElementById('pName').value = firstNew.name; document.getElementById('pCategory').value = firstNew.category;
-                            document.getElementById('pUnit').value = firstNew.unit; document.getElementById('pCost').value = ''; document.getElementById('pCost').focus();
+                            document.getElementById('pUnit').value = firstNew.unit || '只'; document.getElementById('pCost').value = ''; document.getElementById('pCost').focus();
                         }
                     } else {
                         alert(`成功轉入 ${importCount} 張發票！`); switchTab('report');
@@ -786,6 +795,34 @@
                 } catch (err) { alert('解析 Excel 失敗：' + err.message); }
             };
             reader.readAsArrayBuffer(fileInput.files[0]);
+        }
+
+        // --- 強制回溯校正歷史發票毛利 ---
+        function forceRecalculateAllProfits() {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let products = JSON.parse(localStorage.getItem('pos_products')) || [];
+            let updatedCount = 0;
+
+            orders.forEach(order => {
+                let newTotalCost = 0;
+                if(order.items) {
+                    order.items.forEach(item => {
+                        let prod = products.find(p => p.name === item.name);
+                        let correctCost = prod ? (parseFloat(prod.cost) || 0) : 0;
+                        item.cost = correctCost;
+                        item.subCost = item.qty * correctCost;
+                        newTotalCost += item.subCost;
+                    });
+                    order.totalProfit = (order.subTotalNoTax || 0) - newTotalCost;
+                    updatedCount++;
+                }
+            });
+
+            if (updatedCount > 0) {
+                localStorage.setItem('pos_orders', JSON.stringify(orders));
+                loadPOSReports();
+                alert(`✅ 歷史發票毛利已全部重新校正！\n共重新計算了 ${updatedCount} 張發票，請確認數字是否正常。`);
+            }
         }
 
         // --- 發票修改功能 (包含稅額微調) ---
@@ -872,8 +909,11 @@
                 else {
                     const sortedOrders = [...orders].sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
                     sortedOrders.forEach(o => {
-                        let itemsHtml = o.items.map(it => `<tr class="border-b text-xs"><td class="p-1 text-gray-700">${it.name}</td><td class="p-1 text-center">${it.qty} ${it.unit || ''}</td><td class="p-1 text-right">$${it.price ? it.price.toLocaleString() : 0}</td><td class="p-1 text-right font-medium">$${it.subtotal ? it.subtotal.toLocaleString() : 0}</td></tr>`).join('');
+                        // 新增單品進價與總成本透視
+                        let itemsHtml = o.items.map(it => `<tr class="border-b text-xs"><td class="p-1 text-gray-700">${it.name}</td><td class="p-1 text-center">${it.qty} ${it.unit || ''}</td><td class="p-1 text-right">$${it.price ? it.price.toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(進價:$${it.cost || 0})</span></td><td class="p-1 text-right font-medium">$${it.subtotal ? it.subtotal.toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(總成本:$${it.subCost || 0})</span></td></tr>`).join('');
                         let incomeDateDisplay = o.expectedIncomeDate || calculateIncomeDate(o.saleDate);
+                        
+                        // 新增訂單毛利透視標籤
                         orderListDiv.innerHTML += `
                             <div class="border rounded-lg p-4 bg-gray-50 shadow-sm space-y-3">
                                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
@@ -891,8 +931,11 @@
                                         <tbody>${itemsHtml}</tbody>
                                     </table>
                                 </div>
-                                <div class="flex justify-end gap-4 text-xs pt-1 border-t font-semibold text-gray-700">
-                                    <span>銷售額 (未稅)：$${(o.subTotalNoTax || 0).toLocaleString()}</span><span>稅額：$${(o.taxAmount || 0).toLocaleString()}</span><span class="text-blue-800 font-bold text-sm">總計 (含稅)：$${(o.totalAmount || 0).toLocaleString()}</span>
+                                <div class="flex justify-end gap-4 text-xs pt-1 border-t font-semibold text-gray-700 items-center">
+                                    <span>銷售額 (未稅)：$${(o.subTotalNoTax || 0).toLocaleString()}</span>
+                                    <span>稅額：$${(o.taxAmount || 0).toLocaleString()}</span>
+                                    <span class="text-blue-800 font-bold text-sm">總計 (含稅)：$${(o.totalAmount || 0).toLocaleString()}</span>
+                                    <span class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-sm font-bold border border-emerald-300">此單毛利：$${(o.totalProfit || 0).toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
                                 </div>
                             </div>`;
                     });
@@ -921,6 +964,13 @@
             let cats = JSON.parse(localStorage.getItem('pos_categories')) || [];
             cats.push(cat); localStorage.setItem('pos_categories', JSON.stringify(cats));
             document.getElementById('newCategoryName').value = ''; renderCategoryDropdowns();
+        }
+
+        function deleteCategory(cat) {
+            if (!confirm(`確定要刪除分類「${cat}」嗎？`)) return;
+            let cats = JSON.parse(localStorage.getItem('pos_categories')) || [];
+            localStorage.setItem('pos_categories', JSON.stringify(cats.filter(c => c !== cat)));
+            renderCategoryDropdowns();
         }
 
         function renderCustomerTable() {
@@ -1029,9 +1079,14 @@
                     orders.forEach(order => {
                         if(order.items) {
                             order.items.forEach(item => {
-                                if (!products.some(p => p.name === item.name)) {
-                                    products.push({ category: defaultCategory, name: item.name, cost: 0, unit: item.unit || '只' });
-                                    if (!missingProducts.includes(item.name)) missingProducts.push(item.name);
+                                let prod = products.find(p => p.name === item.name);
+                                // 💡 修改：不但檢查商品是否存在，也檢查成本是否為 0 或沒填
+                                if (!prod || !prod.cost || prod.cost === 0) { 
+                                    if (!prod) {
+                                        prod = { category: defaultCategory, name: item.name, cost: 0, unit: item.unit || '只' }; 
+                                        products.push(prod); 
+                                    }
+                                    if (!missingProducts.includes(item.name)) missingProducts.push(item.name); 
                                 }
                             });
                         }
@@ -1040,7 +1095,7 @@
                     if (missingProducts.length > 0) {
                         localStorage.setItem('pos_products', JSON.stringify(products));
                         
-                        alert(`還原成功！\n\n⚠️ 系統偵測到歷史紀錄中有 ${missingProducts.length} 項商品未建立在成本資料庫中，已自動為您補上：\n${missingProducts.slice(0, 3).join('、')}${missingProducts.length > 3 ? '...等' : ''}\n\n已自動切換至「商品成本」頁面，請記得補填未稅進價成本！`);
+                        alert(`還原成功！\n\n⚠️ 系統偵測到歷史紀錄中有 ${missingProducts.length} 項全新或「未填成本」的商品，已自動為您補上：\n${missingProducts.slice(0, 3).join('、')}${missingProducts.length > 3 ? '...等' : ''}\n\n已自動切換至「商品成本」頁面，請記得補填未稅進價成本！`);
                         
                         singleItems = JSON.parse(localStorage.getItem('cf_single_v11')) || [];
                         recurringItems = JSON.parse(localStorage.getItem('cf_recurring_v11')) || [];
@@ -1055,7 +1110,7 @@
                         if (firstNew) {
                             document.getElementById('pName').value = firstNew.name;
                             document.getElementById('pCategory').value = firstNew.category;
-                            document.getElementById('pUnit').value = firstNew.unit;
+                            document.getElementById('pUnit').value = firstNew.unit || '只';
                             document.getElementById('pCost').value = '';
                             document.getElementById('pCost').focus();
                         }
