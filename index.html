@@ -764,22 +764,23 @@
             } else alertDiv.classList.add('hidden');
         }
 
-        // --- 計算入帳日 (25號關帳，次月20號入帳) ---
+        // --- 計算入帳日 (25號關帳，1~25號排次月20號，26號以後排大後月20號) ---
         function calculateIncomeDate(saleDateStr) {
+            if (!saleDateStr) return '';
             let parts = saleDateStr.split('-');
-            let year = parseInt(parts[0]);
-            let month = parseInt(parts[1]) - 1; // 0-based
-            let day = parseInt(parts[2]);
+            let year = parseInt(parts[0], 10);
+            let month = parseInt(parts[1], 10) - 1; // 0-indexed
+            let day = parseInt(parts[2], 10);
 
+            let targetDate = new Date(year, month, 20);
             if (day <= 25) {
                 // 1~25號 ➔ 次月 20 號
-                let targetDate = new Date(year, month + 1, 20);
-                return getLocalDateString(targetDate);
+                targetDate.setMonth(targetDate.getMonth() + 1);
             } else {
-                // 26號以後 ➔ 大後月 20 號
-                let targetDate = new Date(year, month + 2, 20);
-                return getLocalDateString(targetDate);
+                // 26號以後 ➔ 大後月 (隔兩個月) 20 號
+                targetDate.setMonth(targetDate.getMonth() + 2);
             }
+            return getLocalDateString(targetDate);
         }
 
         // --- 電子發票轉入 & POS 邏輯 ---
@@ -963,6 +964,9 @@
                             </tr>
                         `).join('');
 
+                        // 動態計算入帳日期，解決舊資料或硬編碼預設值問題
+                        let incomeDateDisplay = o.expectedIncomeDate || calculateIncomeDate(o.saleDate);
+
                         orderListDiv.innerHTML += `
                             <div class="border rounded-lg p-4 bg-gray-50 shadow-sm space-y-3">
                                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
@@ -973,7 +977,7 @@
                                     </div>
                                     <div class="text-xs text-gray-500 space-x-2">
                                         <span>發票日期：<strong class="text-gray-700">${o.saleDate}</strong></span>
-                                        <span>➔ 預計金流入帳：<strong class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">${o.expectedIncomeDate || '已排入次月20日'}</strong></span>
+                                        <span>➔ 預計金流入帳：<strong class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">${incomeDateDisplay}</strong></span>
                                     </div>
                                 </div>
                                 <div class="overflow-x-auto">
