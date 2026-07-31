@@ -61,13 +61,17 @@
 
         <!-- ================= 1. 收支狀況預測 (月報表與損益預估) ================= -->
         <div id="tab-report" class="bg-white p-6 rounded-xl shadow-md border space-y-6">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 gap-4">
-                <div class="flex items-center space-x-3">
-                    <h2 class="text-xl font-bold text-gray-700">📊 收支狀況預測與損益月報表</h2>
-                    <div class="flex items-center space-x-1 bg-blue-50 px-3 py-1 rounded border border-blue-200">
-                        <span class="text-xs font-bold text-blue-800">選擇月份：</span>
-                        <input type="month" id="selectMonth" class="text-sm font-bold text-blue-900 bg-transparent outline-none cursor-pointer" onchange="loadPOSReports()">
+            <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b pb-4 gap-4">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="text-xl font-bold text-gray-700 mr-2">📊 收支狀況預測與損益報表</h2>
+                    <div class="flex items-center space-x-1 bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
+                        <span class="text-xs font-bold text-blue-800">起：</span>
+                        <input type="date" id="reportStartDate" class="text-xs font-bold text-blue-900 bg-transparent outline-none cursor-pointer" onchange="loadPOSReports()">
+                        <span class="text-xs font-bold text-blue-800 ml-1">迄：</span>
+                        <input type="date" id="reportEndDate" class="text-xs font-bold text-blue-900 bg-transparent outline-none cursor-pointer" onchange="loadPOSReports()">
                     </div>
+                    <button onclick="setReportPeriod('closing')" class="bg-indigo-100 text-indigo-800 hover:bg-indigo-200 text-xs px-2.5 py-1.5 rounded font-bold border border-indigo-300">⚡ 本期關帳 (上月26~本月25)</button>
+                    <button onclick="setReportPeriod('natural')" class="bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs px-2.5 py-1.5 rounded font-bold border">📅 當自然月 (1~月底)</button>
                 </div>
                 <button onclick="open401Modal()" class="bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg font-bold hover:bg-emerald-800 shadow">
                     📑 匯出 401 營業稅申報總月報表
@@ -77,18 +81,18 @@
             <!-- 頂部卡片總覽 -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r shadow-sm">
-                    <p class="text-gray-600 text-sm font-semibold">所選月份累積總銷售額 (含稅總額)：</p>
+                    <p class="text-gray-600 text-sm font-semibold">區間累積總銷售額 (含稅總額)：</p>
                     <p id="monthlyRevenue" class="text-3xl font-extrabold text-blue-600 mt-1">NT$ 0</p>
                 </div>
                 <div class="bg-emerald-50 border-l-4 border-emerald-600 p-4 rounded-r shadow-sm">
-                    <p class="text-gray-600 text-sm font-semibold">所選月份累積預估未稅毛利 (利潤)：</p>
+                    <p class="text-gray-600 text-sm font-semibold">區間累積預估未稅毛利 (利潤)：</p>
                     <p id="monthlyProfit" class="text-3xl font-extrabold text-emerald-600 mt-1">NT$ 0</p>
                 </div>
             </div>
 
             <!-- 月份收支長條圖分析 -->
             <div>
-                <h3 class="text-lg font-bold mb-2 text-gray-700">📈 月份收支趨勢圖表</h3>
+                <h3 class="text-lg font-bold mb-2 text-gray-700">📈 銷售趨勢圖表</h3>
                 <div class="chart-container">
                     <canvas id="reportChart"></canvas>
                 </div>
@@ -103,8 +107,8 @@
                             <tr class="bg-blue-100 text-blue-900">
                                 <th class="p-2.5 border">集團 / 母公司名稱</th>
                                 <th class="p-2.5 border">旗下分店數</th>
-                                <th class="p-2.5 border">本月總進貨次數</th>
-                                <th class="p-2.5 border">集團本月總應收金額 (含稅)</th>
+                                <th class="p-2.5 border">區間進貨次數</th>
+                                <th class="p-2.5 border">集團區間應收金額 (含稅)</th>
                             </tr>
                         </thead>
                         <tbody id="groupSummaryTable"></tbody>
@@ -114,15 +118,15 @@
 
             <!-- 各分店結算表 -->
             <div>
-                <h3 class="text-lg font-bold mb-2 text-gray-700">📍 各分店 本月結算明細與對帳單</h3>
+                <h3 class="text-lg font-bold mb-2 text-gray-700">📍 各分店 區間結算明細與對帳單</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr class="bg-gray-100 text-gray-700">
                                 <th class="p-2.5 border">分店名稱</th>
                                 <th class="p-2.5 border">所屬集團/母公司</th>
-                                <th class="p-2.5 border">本月進貨次數</th>
-                                <th class="p-2.5 border">本月應收總金額 (含稅)</th>
+                                <th class="p-2.5 border">區間進貨次數</th>
+                                <th class="p-2.5 border">區間應收總金額 (含稅)</th>
                                 <th class="p-2.5 border w-36 text-center">操作</th>
                             </tr>
                         </thead>
@@ -289,10 +293,14 @@
         <!-- ================= 4. 電子發票轉入 頁面 ================= -->
         <div id="tab-import" class="bg-white p-6 rounded-xl shadow-md border hidden">
             <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">電子發票 Excel 智慧轉入</h2>
-            <div class="bg-blue-50 border border-blue-200 p-6 rounded-lg text-center max-w-xl mx-auto">
-                <h3 class="font-bold text-blue-900 text-lg mb-2">📥 上傳你的電子發票明細檔案</h3>
-                <p class="text-sm text-blue-700 mb-4">匯入後會自動更新 POS 銷貨紀錄，並同步新增一筆銷貨收入至資金預測系統！</p>
-                <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-gray-500 mb-4 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+            <div class="bg-blue-50 border border-blue-200 p-6 rounded-lg text-center max-w-xl mx-auto space-y-4">
+                <h3 class="font-bold text-blue-900 text-lg">📥 上傳你的電子發票明細檔案</h3>
+                <p class="text-xs text-blue-700 leading-relaxed">
+                    💡 系統自動計算：<br>
+                    • 發票日在 **1~25 號** ➔ 自動排入 **「次月 20 號」** 資金收入<br>
+                    • 發票日在 **26 號以後** ➔ 自動排入 **「大後月 20 號」** 資金收入
+                </p>
+                <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
                 <button onclick="importInvoiceExcel()" class="bg-emerald-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-emerald-700 shadow-md w-full">🚀 開始解析並轉入帳務與資金鏈</button>
             </div>
         </div>
@@ -500,8 +508,8 @@
             document.getElementById('anchor-bank').value = anchorBank;
             document.getElementById('anchor-cash').value = anchorCash;
 
-            const monthInput = document.getElementById('selectMonth');
-            if (monthInput) monthInput.value = todayStrGlobal.slice(0, 7);
+            // 初始化預設為本期關帳區間 (上月26~本月25)
+            setReportPeriod('closing');
 
             renderCategoryDropdowns();
             renderCustomerTable();
@@ -528,6 +536,33 @@
                 ];
                 localStorage.setItem('pos_customers', JSON.stringify(defaultCustomers));
             }
+        }
+
+        // --- 報表自訂區間快捷設定 ---
+        function setReportPeriod(type) {
+            let today = new Date();
+            let start, end;
+
+            if (type === 'closing') {
+                // 上月26 ~ 本月25
+                let currMonth = today.getMonth();
+                let currYear = today.getFullYear();
+                
+                let sDate = new Date(currYear, currMonth - 1, 26);
+                let eDate = new Date(currYear, currMonth, 25);
+                start = getLocalDateString(sDate);
+                end = getLocalDateString(eDate);
+            } else if (type === 'natural') {
+                // 當月 1 號 ~ 月底
+                let sDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                let eDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                start = getLocalDateString(sDate);
+                end = getLocalDateString(eDate);
+            }
+
+            document.getElementById('reportStartDate').value = start;
+            document.getElementById('reportEndDate').value = end;
+            loadPOSReports();
         }
 
         // --- 頁籤切換 ---
@@ -729,6 +764,24 @@
             } else alertDiv.classList.add('hidden');
         }
 
+        // --- 計算入帳日 (25號關帳，次月20號入帳) ---
+        function calculateIncomeDate(saleDateStr) {
+            let parts = saleDateStr.split('-');
+            let year = parseInt(parts[0]);
+            let month = parseInt(parts[1]) - 1; // 0-based
+            let day = parseInt(parts[2]);
+
+            if (day <= 25) {
+                // 1~25號 ➔ 次月 20 號
+                let targetDate = new Date(year, month + 1, 20);
+                return getLocalDateString(targetDate);
+            } else {
+                // 26號以後 ➔ 大後月 20 號
+                let targetDate = new Date(year, month + 2, 20);
+                return getLocalDateString(targetDate);
+            }
+        }
+
         // --- 電子發票轉入 & POS 邏輯 ---
         function importInvoiceExcel() {
             const fileInput = document.getElementById('excelFile');
@@ -799,9 +852,13 @@
                         let taxAmount = Math.round(subTotalNoTax * 0.05);
                         let totalAmount = Math.round(subTotalNoTax + taxAmount);
 
-                        orders.push({ id: Date.now() + Math.random(), invoiceNumber: inv.invoiceNumber, saleDate: inv.saleDate, storeName: inv.storeName, items: orderItems, subTotalNoTax, taxAmount, totalAmount, totalProfit: subTotalNoTax - totalCost });
+                        // 計算資金入帳日（次月20號/大後月20號）
+                        let expectedIncomeDate = calculateIncomeDate(inv.saleDate);
+
+                        orders.push({ id: Date.now() + Math.random(), invoiceNumber: inv.invoiceNumber, saleDate: inv.saleDate, expectedIncomeDate, storeName: inv.storeName, items: orderItems, subTotalNoTax, taxAmount, totalAmount, totalProfit: subTotalNoTax - totalCost });
                         
-                        singleItems.push({ id: Date.now() + Math.random(), date: inv.saleDate, name: `[發票] ${inv.storeName} (${inv.invoiceNumber})`, type: 'income', tag: '銷貨收入', amt: totalAmount, invoiceNumber: inv.invoiceNumber });
+                        // 金融排程使用「預計入帳日」
+                        singleItems.push({ id: Date.now() + Math.random(), date: expectedIncomeDate, name: `[發票入帳] ${inv.storeName} (${inv.invoiceNumber})`, type: 'income', tag: '銷貨收入', amt: totalAmount, invoiceNumber: inv.invoiceNumber });
                         importCount++;
                     }
 
@@ -809,7 +866,7 @@
                     localStorage.setItem('pos_orders', JSON.stringify(orders));
                     saveAndUpdateCashflow();
 
-                    alert(`成功轉入 ${importCount} 張發票！`);
+                    alert(`成功轉入 ${importCount} 張發票！\n資金排程已自動為您排入次月/次次月 20 號之入帳。`);
                     switchTab('report');
                 } catch (err) { alert('解析 Excel 失敗：' + err.message); }
             };
@@ -836,7 +893,7 @@
 
             singleItems.forEach(item => {
                 if (item.invoiceNumber === invNum || (item.name && item.name.includes(invNum))) {
-                    item.name = `[發票] ${newStoreName} (${invNum})`;
+                    item.name = `[發票入帳] ${newStoreName} (${invNum})`;
                 }
             });
 
@@ -850,12 +907,15 @@
         function loadPOSReports() {
             const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
             const customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
-            const selectedMonth = document.getElementById('selectMonth').value || todayStrGlobal.slice(0, 7);
+            
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
 
             let monthlyRevenue = 0, monthlyProfit = 0, storeSummary = {}, groupSummary = {};
 
             orders.forEach(o => {
-                if (o.saleDate.startsWith(selectedMonth)) {
+                // 以區間比對
+                if ((!startDate || o.saleDate >= startDate) && (!endDate || o.saleDate <= endDate)) {
                     monthlyRevenue += o.totalAmount;
                     monthlyProfit += (o.totalProfit || 0);
 
@@ -883,7 +943,7 @@
                 stoTb.innerHTML += `<tr class="border-b"><td class="p-2.5 font-semibold">${s}</td><td class="p-2.5 text-blue-800">${cust ? cust.group : '獨立客戶'}</td><td class="p-2.5">${storeSummary[s].count} 次</td><td class="p-2.5 font-bold text-emerald-600">NT$ ${storeSummary[s].total.toLocaleString()}</td><td class="p-2.5 text-center"><button onclick="openStatementModal('${s}')" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded font-bold">📄 產生對帳單</button></td></tr>`;
             }
 
-            renderReportChart(orders);
+            renderReportChart(orders, startDate, endDate);
 
             // 渲染發票單據管理區塊
             const orderListDiv = document.getElementById('orderList');
@@ -911,8 +971,9 @@
                                         <span class="font-bold text-gray-800 text-base">${o.storeName}</span>
                                         <button onclick="updateInvoiceStoreName('${o.invoiceNumber}')" class="bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs px-2 py-0.5 rounded font-bold border border-amber-300">✏️ 修改店家</button>
                                     </div>
-                                    <div class="text-xs text-gray-500">
-                                        交易日期：<span class="font-semibold text-gray-700">${o.saleDate}</span>
+                                    <div class="text-xs text-gray-500 space-x-2">
+                                        <span>發票日期：<strong class="text-gray-700">${o.saleDate}</strong></span>
+                                        <span>➔ 預計金流入帳：<strong class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">${o.expectedIncomeDate || '已排入次月20日'}</strong></span>
                                     </div>
                                 </div>
                                 <div class="overflow-x-auto">
@@ -940,22 +1001,24 @@
             }
         }
 
-        function renderReportChart(orders) {
-            let monthsData = {};
-            orders.forEach(o => {
-                let m = o.saleDate.slice(0, 7);
-                if (!monthsData[m]) monthsData[m] = 0;
-                monthsData[m] += o.totalAmount;
+        function renderReportChart(orders, startDate, endDate) {
+            let filteredOrders = orders.filter(o => (!startDate || o.saleDate >= startDate) && (!endDate || o.saleDate <= endDate));
+            
+            let datesData = {};
+            filteredOrders.forEach(o => {
+                let d = o.saleDate;
+                if (!datesData[d]) datesData[d] = 0;
+                datesData[d] += o.totalAmount;
             });
 
-            let sortedMonths = Object.keys(monthsData).sort();
-            let chartData = sortedMonths.map(m => monthsData[m]);
+            let sortedDates = Object.keys(datesData).sort();
+            let chartData = sortedDates.map(d => datesData[d]);
 
             const ctx = document.getElementById('reportChart').getContext('2d');
             if (barChartInstance) barChartInstance.destroy();
             barChartInstance = new Chart(ctx, {
                 type: 'bar',
-                data: { labels: sortedMonths, datasets: [{ label: '總銷售額 (含稅)', data: chartData, backgroundColor: '#2563eb' }] },
+                data: { labels: sortedDates, datasets: [{ label: '每日銷售額 (含稅)', data: chartData, backgroundColor: '#2563eb' }] },
                 options: { responsive: true, maintainAspectRatio: false }
             });
         }
@@ -1096,8 +1159,11 @@
         // --- 對帳單 Modal 邏輯 ---
         function openStatementModal(storeName) {
             currentStatementStore = storeName;
-            document.getElementById('startDate').value = todayStrGlobal.slice(0, 7) + '-01';
-            document.getElementById('endDate').value = todayStrGlobal;
+            
+            // 預設對帳單區間跟隨第一頁的起訖日
+            document.getElementById('startDate').value = document.getElementById('reportStartDate').value;
+            document.getElementById('endDate').value = document.getElementById('reportEndDate').value;
+            
             generateStatementData();
             document.getElementById('statementModal').classList.remove('hidden');
         }
