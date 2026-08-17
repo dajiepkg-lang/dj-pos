@@ -501,36 +501,51 @@
             }
         }
 
-        async function loadFromCloud() {
-            if (API_URL === "YOUR_WEB_APP_URL_HERE" || !API_URL) return alert("請先在程式碼中設定 API_URL！");
-            if (!confirm('確定要從雲端載入資料嗎？這將會覆蓋你目前畫面上的所有紀錄！')) return;
+async function loadFromCloud() {
+    if (API_URL === "YOUR_WEB_APP_URL_HERE" || !API_URL) return alert("請先在程式碼中設定 API_URL！");
+    if (!confirm('確定要從雲端載入資料嗎？這將會覆蓋你目前畫面上的所有紀錄！')) return;
 
-            const btn = document.getElementById('btn-load');
-            const originalText = btn.innerText;
-            btn.innerText = "⏳ 載入中..."; btn.disabled = true;
+    const btn = document.getElementById('btn-load');
+    const originalText = btn.innerText;
+    btn.innerText = "⏳ 載入中..."; btn.disabled = true;
 
-            try {
-                const response = await fetch(API_URL, { method: 'GET' });
-                const data = await response.json();
+    try {
+        // 加上時間戳記，強迫 B 電腦不准使用舊快取
+        const noCacheUrl = API_URL + "?t=" + new Date().getTime();
+        
+        const response = await fetch(noCacheUrl, { method: 'GET' });
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // 1. 還原現金與設定 (你原本成功的部分)
+            if (data.singleItems) localStorage.setItem('cf_single_v11', JSON.stringify(data.singleItems));
+            if (data.recurringItems) localStorage.setItem('cf_recurring_v11', JSON.stringify(data.recurringItems));
+            if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
+            if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
+            if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
+            
+            // 2. 還原發票、客戶、商品等資料 (修復漏接的核心)
+            if (data.fullBackup) {
+                // 防呆機制：確保資料存進 localStorage 時一定是字串格式
+                const safeStringify = (val) => typeof val === 'string' ? val : JSON.stringify(val);
                 
-                if (data.status === 'success') {
-                    if (data.singleItems) localStorage.setItem('cf_single_v11', JSON.stringify(data.singleItems));
-                    if (data.recurringItems) localStorage.setItem('cf_recurring_v11', JSON.stringify(data.recurringItems));
-                    if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
-                    if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
-                    if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
-                    
-                    alert('☁️ 已成功從雲端載入系統設定！');
-                    location.reload();
-                } else {
-                    alert('載入失敗：' + data.message);
-                }
-            } catch (error) {
-                alert('網路連線錯誤，無法載入資料。');
-            } finally {
-                btn.innerText = originalText; btn.disabled = false;
+                if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', safeStringify(data.fullBackup.pos_categories));
+                if (data.fullBackup.pos_products) localStorage.setItem('pos_products', safeStringify(data.fullBackup.pos_products));
+                if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', safeStringify(data.fullBackup.pos_customers));
+                if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', safeStringify(data.fullBackup.pos_orders));
             }
+            
+            alert('☁️ 已成功從雲端載入系統設定與所有帳務資料！');
+            location.reload();
+        } else {
+            alert('載入失敗：' + data.message);
         }
+    } catch (error) {
+        alert('網路連線錯誤，無法載入資料。');
+    } finally {
+        btn.innerText = originalText; btn.disabled = false;
+    }
+}
 
         // --- 報表自訂區間 ---
         function setReportPeriod(type) {
