@@ -129,6 +129,50 @@
                     </table>
                 </div>
             </div>
+
+            <!-- 📦 新增：廠商進貨品項與銷貨數量對帳彙總 -->
+            <div class="border-t pt-4">
+                <div class="flex justify-between items-center mb-3">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-700">📦 進貨廠商銷貨品項與成本對帳彙總</h3>
+                        <p class="text-xs text-gray-500">自動彙總選定區間內所有售出品項總量，用於核對廠商送貨單與預估應付貨款。</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-lg text-right">
+                            <span class="text-xs text-amber-800 font-bold block">區間預計應付貨款 (未稅)：</span>
+                            <span id="totalVendorCost" class="text-lg font-extrabold text-amber-700">NT$ 0</span>
+                        </div>
+                        <button onclick="exportVendorSummaryExcel()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-2 rounded-lg font-bold shadow flex items-center gap-1">
+                            📥 匯出廠商對帳 Excel
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-amber-100 text-amber-900 font-bold">
+                                <th class="p-2.5 border">商品分類</th>
+                                <th class="p-2.5 border">品名規格</th>
+                                <th class="p-2.5 border text-center w-28">區間銷貨總量</th>
+                                <th class="p-2.5 border text-center w-20">單位</th>
+                                <th class="p-2.5 border text-right w-32">未稅進價單價</th>
+                                <th class="p-2.5 border text-right w-36">預估採購總額 (未稅)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vendorSummaryTableBody"></tbody>
+                        <tfoot>
+                            <tr class="bg-amber-50 font-bold text-amber-900 border-t-2 border-amber-300">
+                                <td colspan="2" class="p-2.5 text-center">合計總銷貨品項數：<span id="vendorItemKindCount">0</span> 種</td>
+                                <td id="vendorTotalQty" class="p-2.5 text-center text-blue-700">0</td>
+                                <td class="p-2.5 text-center">-</td>
+                                <td class="p-2.5 text-right">-</td>
+                                <td id="vendorTotalCostFooter" class="p-2.5 text-right text-red-600 font-extrabold">NT$ 0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
         </div>
 
         <!-- ================= 2. 現金水位 ================= -->
@@ -276,6 +320,27 @@
         <!-- ================= 3. 發票單據管理 ================= -->
         <div id="tab-orders" class="bg-white p-6 rounded-xl shadow-md border hidden">
             <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-700">📑 已轉入之電子發票單據紀錄</h2>
+            
+            <!-- 發票篩選工具列 -->
+            <div class="bg-gray-50 p-4 rounded-lg border mb-4 flex flex-wrap gap-4 items-center">
+                <span class="font-bold text-gray-700">🔍 篩選條件：</span>
+                <div class="flex items-center space-x-2">
+                    <label class="text-xs font-bold text-gray-600">發票起日</label>
+                    <input type="date" id="orderFilterStart" class="border rounded p-1.5 text-sm" onchange="renderOrderList()">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label class="text-xs font-bold text-gray-600">發票迄日</label>
+                    <input type="date" id="orderFilterEnd" class="border rounded p-1.5 text-sm" onchange="renderOrderList()">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label class="text-xs font-bold text-gray-600">店家名稱</label>
+                    <select id="orderFilterStore" class="border rounded p-1.5 text-sm bg-white min-w-[150px]" onchange="renderOrderList()">
+                        <option value="all">顯示全部店家</option>
+                    </select>
+                </div>
+                <button onclick="clearOrderFilters()" class="bg-gray-200 text-gray-700 hover:bg-gray-300 text-xs px-3 py-1.5 rounded font-bold border border-gray-400 shadow-sm">清除篩選</button>
+            </div>
+
             <div id="orderList" class="space-y-4"></div>
         </div>
 
@@ -501,51 +566,45 @@
             }
         }
 
-async function loadFromCloud() {
-    if (API_URL === "YOUR_WEB_APP_URL_HERE" || !API_URL) return alert("請先在程式碼中設定 API_URL！");
-    if (!confirm('確定要從雲端載入資料嗎？這將會覆蓋你目前畫面上的所有紀錄！')) return;
+        async function loadFromCloud() {
+            if (API_URL === "YOUR_WEB_APP_URL_HERE" || !API_URL) return alert("請先在程式碼中設定 API_URL！");
+            if (!confirm('確定要從雲端載入資料嗎？這將會覆蓋你目前畫面上的所有紀錄！')) return;
 
-    const btn = document.getElementById('btn-load');
-    const originalText = btn.innerText;
-    btn.innerText = "⏳ 載入中..."; btn.disabled = true;
+            const btn = document.getElementById('btn-load');
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ 載入中..."; btn.disabled = true;
 
-    try {
-        // 加上時間戳記，強迫 B 電腦不准使用舊快取
-        const noCacheUrl = API_URL + "?t=" + new Date().getTime();
-        
-        const response = await fetch(noCacheUrl, { method: 'GET' });
-        const data = await response.json();
-        
-        if (data.status === 'success') {
-            // 1. 還原現金與設定 (你原本成功的部分)
-            if (data.singleItems) localStorage.setItem('cf_single_v11', JSON.stringify(data.singleItems));
-            if (data.recurringItems) localStorage.setItem('cf_recurring_v11', JSON.stringify(data.recurringItems));
-            if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
-            if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
-            if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
-            
-            // 2. 還原發票、客戶、商品等資料 (修復漏接的核心)
-            if (data.fullBackup) {
-                // 防呆機制：確保資料存進 localStorage 時一定是字串格式
-                const safeStringify = (val) => typeof val === 'string' ? val : JSON.stringify(val);
+            try {
+                const noCacheUrl = API_URL + "?t=" + new Date().getTime();
+                const response = await fetch(noCacheUrl, { method: 'GET' });
+                const data = await response.json();
                 
-                if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', safeStringify(data.fullBackup.pos_categories));
-                if (data.fullBackup.pos_products) localStorage.setItem('pos_products', safeStringify(data.fullBackup.pos_products));
-                if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', safeStringify(data.fullBackup.pos_customers));
-                if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', safeStringify(data.fullBackup.pos_orders));
+                if (data.status === 'success') {
+                    if (data.singleItems) localStorage.setItem('cf_single_v11', JSON.stringify(data.singleItems));
+                    if (data.recurringItems) localStorage.setItem('cf_recurring_v11', JSON.stringify(data.recurringItems));
+                    if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
+                    if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
+                    if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
+                    
+                    if (data.fullBackup) {
+                        const safeStringify = (val) => typeof val === 'string' ? val : JSON.stringify(val);
+                        if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', safeStringify(data.fullBackup.pos_categories));
+                        if (data.fullBackup.pos_products) localStorage.setItem('pos_products', safeStringify(data.fullBackup.pos_products));
+                        if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', safeStringify(data.fullBackup.pos_customers));
+                        if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', safeStringify(data.fullBackup.pos_orders));
+                    }
+                    
+                    alert('☁️ 已成功從雲端載入系統設定與所有帳務資料！');
+                    location.reload();
+                } else {
+                    alert('載入失敗：' + data.message);
+                }
+            } catch (error) {
+                alert('網路連線錯誤，無法載入資料。');
+            } finally {
+                btn.innerText = originalText; btn.disabled = false;
             }
-            
-            alert('☁️ 已成功從雲端載入系統設定與所有帳務資料！');
-            location.reload();
-        } else {
-            alert('載入失敗：' + data.message);
         }
-    } catch (error) {
-        alert('網路連線錯誤，無法載入資料。');
-    } finally {
-        btn.innerText = originalText; btn.disabled = false;
-    }
-}
 
         // --- 報表自訂區間 ---
         function setReportPeriod(type) {
@@ -770,7 +829,6 @@ async function loadFromCloud() {
                         let subTotalNoTax = 0, totalCost = 0, orderItems = [];
                         inv.items.forEach(it => {
                             let prod = products.find(p => p.name === it.name);
-                            // 💡 修改：不但檢查商品是否存在，也檢查成本是否為 0 或沒填
                             if (!prod || !prod.cost || prod.cost === 0) { 
                                 if (!prod) {
                                     prod = { category: defaultCategory, name: it.name, cost: 0, unit: '只' }; 
@@ -788,8 +846,8 @@ async function loadFromCloud() {
                         let totalAmount = Math.round(subTotalNoTax + taxAmount);
                         let expectedIncomeDate = calculateIncomeDate(inv.saleDate);
 
-                        orders.push({ id: Date.now() + Math.random(), invoiceNumber: inv.invoiceNumber, saleDate: inv.saleDate, expectedIncomeDate, storeName: inv.storeName, items: orderItems, subTotalNoTax, taxAmount, totalAmount, totalProfit: subTotalNoTax - totalCost });
-                        singleItems.push({ id: Date.now() + Math.random(), date: expectedIncomeDate, name: `[發票入帳] ${inv.storeName} (${inv.invoiceNumber})`, type: 'income', tag: '銷貨收入', amt: totalAmount, invoiceNumber: inv.invoiceNumber });
+                        orders.push({ id: Date.now() + Math.random(), invoiceNumber: inv.invoiceNumber, saleDate: inv.saleDate, expectedIncomeDate, storeName: inv.storeName, items: orderItems, subTotalNoTax, taxAmount, totalAmount, totalProfit: subTotalNoTax - totalCost, isCleared: false });
+                        singleItems.push({ id: Date.now() + Math.random(), date: expectedIncomeDate, name: `[發票入帳] ${inv.storeName} (${inv.invoiceNumber})`, type: 'income', tag: '銷貨收入', amt: totalAmount, invoiceNumber: inv.invoiceNumber, isCleared: false });
                         importCount++;
                     }
 
@@ -812,7 +870,6 @@ async function loadFromCloud() {
             reader.readAsArrayBuffer(fileInput.files[0]);
         }
 
-        // --- 強制回溯校正歷史發票毛利 ---
         function forceRecalculateAllProfits() {
             let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
             let products = JSON.parse(localStorage.getItem('pos_products')) || [];
@@ -840,7 +897,6 @@ async function loadFromCloud() {
             }
         }
 
-        // --- 發票修改功能 (包含稅額微調) ---
         function updateInvoiceStoreName(invNum) {
             let orders = JSON.parse(localStorage.getItem('pos_orders')) || []; let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
             let order = orders.find(o => o.invoiceNumber === invNum); if (!order) return;
@@ -886,76 +942,372 @@ async function loadFromCloud() {
             alert('金額微調完成！401 報表數據與預期金流已同步修正。');
         }
 
+        // --- 發票展延 (更改入帳月) ---
+        function extendInvoiceDate(invNum) {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let order = orders.find(o => o.invoiceNumber === invNum);
+            if (!order) return;
+
+            let currentExpected = order.expectedIncomeDate || "";
+            let newDate = prompt(`【發票 ${invNum}】\n這筆帳目前的預計收款日為：${currentExpected}\n請輸入客戶展延後的「新預計入帳日期」 (格式 YYYY-MM-DD)：`, currentExpected);
+            
+            if (!newDate || newDate.trim() === currentExpected) return;
+
+            order.expectedIncomeDate = newDate.trim();
+
+            let singleItemsArr = JSON.parse(localStorage.getItem('cf_single_v11')) || [];
+            let itemUpdated = false;
+            singleItemsArr.forEach(item => {
+                if (item.invoiceNumber === invNum) {
+                    item.date = order.expectedIncomeDate;
+                    itemUpdated = true;
+                }
+            });
+
+            localStorage.setItem('pos_orders', JSON.stringify(orders));
+            if (itemUpdated) {
+                singleItems = singleItemsArr; 
+                localStorage.setItem('cf_single_v11', JSON.stringify(singleItems));
+                updateCashflowSystem();
+            }
+            loadPOSReports();
+            alert('📅 展延成功！現金水位圖表已自動將此筆款項推延至新日期。');
+        }
+
+        // --- 發票沖帳 (確認收款) ---
+        function clearInvoice(invNum) {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let order = orders.find(o => o.invoiceNumber === invNum);
+            if (!order) return;
+
+            if (order.isCleared) {
+                if (!confirm(`確定要取消發票 ${invNum} 的沖帳狀態嗎？\n取消後將恢復為「未收款」狀態。`)) return;
+                order.isCleared = false;
+                delete order.clearedDate;
+            } else {
+                let actualDate = prompt(`【沖帳作業：發票 ${invNum}】\n確定已收到款項了嗎？請輸入「實際入帳的日期」 (格式 YYYY-MM-DD)：`, todayStrGlobal);
+                if (!actualDate) return;
+                order.isCleared = true;
+                order.clearedDate = actualDate.trim();
+            }
+
+            let singleItemsArr = JSON.parse(localStorage.getItem('cf_single_v11')) || [];
+            let itemUpdated = false;
+            singleItemsArr.forEach(item => {
+                if (item.invoiceNumber === invNum) {
+                    item.isCleared = order.isCleared;
+                    if (order.isCleared) item.date = order.clearedDate; 
+                    itemUpdated = true;
+                }
+            });
+
+            localStorage.setItem('pos_orders', JSON.stringify(orders));
+            if (itemUpdated) {
+                singleItems = singleItemsArr;
+                localStorage.setItem('cf_single_v11', JSON.stringify(singleItems));
+                updateCashflowSystem();
+            }
+            loadPOSReports();
+        }
+
+        // --- 修改發票基本資訊 (單號與日期) ---
+        function editInvoiceBasicInfo(oldInvNum) {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let orderIndex = orders.findIndex(o => o.invoiceNumber === oldInvNum);
+            if (orderIndex === -1) return;
+            let order = orders[orderIndex];
+
+            // 1. 修改單號
+            let newInvNum = prompt(`【修改發票資訊】\n請輸入作廢重開/修正後的「新發票號碼」：`, order.invoiceNumber);
+            if (newInvNum === null) return;
+            newInvNum = newInvNum.trim();
+            if (newInvNum !== oldInvNum && orders.some(o => o.invoiceNumber === newInvNum)) {
+                return alert('修改失敗：系統中已存在相同的發票號碼！');
+            }
+
+            // 2. 修改日期
+            let newSaleDate = prompt(`【修改發票資訊】\n請輸入正確的「發票開立日期」 (影響 401 報表區間，格式 YYYY-MM-DD)：`, order.saleDate);
+            if (newSaleDate === null) return;
+            newSaleDate = newSaleDate.trim();
+
+            let isModified = false;
+            if (newInvNum && newInvNum !== order.invoiceNumber) {
+                order.invoiceNumber = newInvNum;
+                isModified = true;
+            }
+            if (newSaleDate && newSaleDate !== order.saleDate) {
+                order.saleDate = newSaleDate;
+                isModified = true;
+            }
+
+            if (isModified) {
+                orders[orderIndex] = order;
+                localStorage.setItem('pos_orders', JSON.stringify(orders));
+
+                // 同步修改資金流水帳中的單號
+                let singleItemsArr = JSON.parse(localStorage.getItem('cf_single_v11')) || [];
+                let itemUpdated = false;
+                singleItemsArr.forEach(item => {
+                    if (item.invoiceNumber === oldInvNum) {
+                        item.invoiceNumber = order.invoiceNumber;
+                        item.name = `[發票入帳] ${order.storeName} (${order.invoiceNumber})`;
+                        itemUpdated = true;
+                    }
+                });
+
+                if (itemUpdated) {
+                    singleItems = singleItemsArr;
+                    localStorage.setItem('cf_single_v11', JSON.stringify(singleItems));
+                    updateCashflowSystem();
+                }
+                
+                loadPOSReports();
+                alert('📝 發票資訊修改成功！401報表與資金排程已同步更新。');
+            }
+        }
+
+        // --- 報表與對帳總表繪製 ---
         function loadPOSReports() {
-            const orders = JSON.parse(localStorage.getItem('pos_orders')) || []; const customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
-            const startDate = document.getElementById('reportStartDate').value; const endDate = document.getElementById('reportEndDate').value;
+            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            const customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
+            const products = JSON.parse(localStorage.getItem('pos_products')) || [];
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
+            
             let monthlyRevenue = 0, monthlyProfit = 0, storeSummary = {}, groupSummary = {};
+            let itemSummaryMap = {}; 
 
             orders.forEach(o => {
                 if ((!startDate || o.saleDate >= startDate) && (!endDate || o.saleDate <= endDate)) {
-                    monthlyRevenue += o.totalAmount; monthlyProfit += (o.totalProfit || 0);
-                    if (!storeSummary[o.storeName]) storeSummary[o.storeName] = { count: 0, total: 0 };
-                    storeSummary[o.storeName].count += 1; storeSummary[o.storeName].total += o.totalAmount;
+                    monthlyRevenue += o.totalAmount;
+                    monthlyProfit += (o.totalProfit || 0);
 
-                    let cust = customers.find(c => c.name === o.storeName); let gName = cust && cust.group ? cust.group : '獨立客戶';
+                    if (!storeSummary[o.storeName]) storeSummary[o.storeName] = { count: 0, total: 0 };
+                    storeSummary[o.storeName].count += 1;
+                    storeSummary[o.storeName].total += o.totalAmount;
+
+                    let cust = customers.find(c => c.name === o.storeName);
+                    let gName = cust && cust.group ? cust.group : '獨立客戶';
                     if (!groupSummary[gName]) groupSummary[gName] = { count: 0, total: 0, stores: new Set() };
-                    groupSummary[gName].count += 1; groupSummary[gName].total += o.totalAmount; groupSummary[gName].stores.add(o.storeName);
+                    groupSummary[gName].count += 1;
+                    groupSummary[gName].total += o.totalAmount;
+                    groupSummary[gName].stores.add(o.storeName);
+
+                    if (o.items && Array.isArray(o.items)) {
+                        o.items.forEach(it => {
+                            if (!itemSummaryMap[it.name]) {
+                                let prod = products.find(p => p.name === it.name);
+                                itemSummaryMap[it.name] = {
+                                    name: it.name,
+                                    category: prod ? prod.category : '未分類',
+                                    unit: it.unit || (prod ? prod.unit : '只'),
+                                    cost: (prod && prod.cost !== undefined) ? prod.cost : (it.cost || 0),
+                                    totalQty: 0,
+                                    totalCost: 0
+                                };
+                            }
+                            let currentCost = itemSummaryMap[it.name].cost;
+                            itemSummaryMap[it.name].totalQty += (it.qty || 0);
+                            itemSummaryMap[it.name].totalCost += ((it.qty || 0) * currentCost);
+                        });
+                    }
                 }
             });
 
             document.getElementById('monthlyRevenue').innerText = `NT$ ${monthlyRevenue.toLocaleString()}`;
             document.getElementById('monthlyProfit').innerText = `NT$ ${monthlyProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
 
-            let grpTb = document.getElementById('groupSummaryTable'); grpTb.innerHTML = '';
-            for (let g in groupSummary) grpTb.innerHTML += `<tr class="border-b"><td class="p-2.5 font-bold text-blue-900">${g}</td><td class="p-2.5">${groupSummary[g].stores.size} 間分店</td><td class="p-2.5">${groupSummary[g].count} 次</td><td class="p-2.5 font-bold text-blue-600">NT$ ${groupSummary[g].total.toLocaleString()}</td></tr>`;
+            let grpTb = document.getElementById('groupSummaryTable');
+            grpTb.innerHTML = '';
+            for (let g in groupSummary) {
+                grpTb.innerHTML += `<tr class="border-b"><td class="p-2.5 font-bold text-blue-900">${g}</td><td class="p-2.5">${groupSummary[g].stores.size} 間分店</td><td class="p-2.5">${groupSummary[g].count} 次</td><td class="p-2.5 font-bold text-blue-600">NT$ ${groupSummary[g].total.toLocaleString()}</td></tr>`;
+            }
 
-            let stoTb = document.getElementById('storeSummaryTable'); stoTb.innerHTML = '';
+            let stoTb = document.getElementById('storeSummaryTable');
+            stoTb.innerHTML = '';
             for (let s in storeSummary) {
                 let cust = customers.find(c => c.name === s);
                 stoTb.innerHTML += `<tr class="border-b"><td class="p-2.5 font-semibold">${s}</td><td class="p-2.5 text-blue-800">${cust ? cust.group : '獨立客戶'}</td><td class="p-2.5">${storeSummary[s].count} 次</td><td class="p-2.5 font-bold text-emerald-600">NT$ ${storeSummary[s].total.toLocaleString()}</td><td class="p-2.5 text-center"><button onclick="openStatementModal('${s}')" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded font-bold">📄 產生對帳單</button></td></tr>`;
             }
 
-            renderReportChart(orders, startDate, endDate);
+            let vendorTb = document.getElementById('vendorSummaryTableBody');
+            if (vendorTb) {
+                vendorTb.innerHTML = '';
+                let totalVendorPayable = 0;
+                let grandTotalQty = 0;
+                let itemsArray = Object.values(itemSummaryMap);
 
-            const orderListDiv = document.getElementById('orderList');
-            if (orderListDiv) {
-                orderListDiv.innerHTML = '';
-                if (orders.length === 0) orderListDiv.innerHTML = '<p class="text-gray-500 text-sm">目前尚無轉入之發票單據。</p>';
-                else {
-                    const sortedOrders = [...orders].sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
-                    sortedOrders.forEach(o => {
-                        // 新增單品進價與總成本透視
-                        let itemsHtml = o.items.map(it => `<tr class="border-b text-xs"><td class="p-1 text-gray-700">${it.name}</td><td class="p-1 text-center">${it.qty} ${it.unit || ''}</td><td class="p-1 text-right">$${it.price ? it.price.toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(進價:$${it.cost || 0})</span></td><td class="p-1 text-right font-medium">$${it.subtotal ? it.subtotal.toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(總成本:$${it.subCost || 0})</span></td></tr>`).join('');
-                        let incomeDateDisplay = o.expectedIncomeDate || calculateIncomeDate(o.saleDate);
-                        
-                        // 新增訂單毛利透視標籤
-                        orderListDiv.innerHTML += `
-                            <div class="border rounded-lg p-4 bg-gray-50 shadow-sm space-y-3">
-                                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded font-bold">${o.invoiceNumber || '無號碼'}</span>
-                                        <span class="font-bold text-gray-800 text-base">${o.storeName}</span>
-                                        <button onclick="updateInvoiceStoreName('${o.invoiceNumber}')" class="bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs px-2 py-0.5 rounded font-bold border border-amber-300">✏️ 修改店家</button>
-                                        <button onclick="adjustInvoiceAmount('${o.invoiceNumber}')" class="bg-purple-100 text-purple-800 hover:bg-purple-200 text-xs px-2 py-0.5 rounded font-bold border border-purple-300">💰 微調金額</button>
-                                    </div>
-                                    <div class="text-xs text-gray-500 space-x-2"><span>發票日期：<strong class="text-gray-700">${o.saleDate}</strong></span><span>➔ 預計金流入帳：<strong class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">${incomeDateDisplay}</strong></span></div>
-                                </div>
-                                <div class="overflow-x-auto">
-                                    <table class="w-full text-left bg-white rounded border">
-                                        <thead><tr class="bg-gray-100 text-gray-600 text-xs"><th class="p-1.5">品名</th><th class="p-1.5 text-center w-16">數量</th><th class="p-1.5 text-right w-20">單價</th><th class="p-1.5 text-right w-24">小計</th></tr></thead>
-                                        <tbody>${itemsHtml}</tbody>
-                                    </table>
-                                </div>
-                                <div class="flex justify-end gap-4 text-xs pt-1 border-t font-semibold text-gray-700 items-center">
-                                    <span>銷售額 (未稅)：$${(o.subTotalNoTax || 0).toLocaleString()}</span>
-                                    <span>稅額：$${(o.taxAmount || 0).toLocaleString()}</span>
-                                    <span class="text-blue-800 font-bold text-sm">總計 (含稅)：$${(o.totalAmount || 0).toLocaleString()}</span>
-                                    <span class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-sm font-bold border border-emerald-300">此單毛利：$${(o.totalProfit || 0).toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
-                                </div>
-                            </div>`;
+                itemsArray.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+
+                if (itemsArray.length === 0) {
+                    vendorTb.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-400">此區間內無銷售品項紀錄</td></tr>`;
+                } else {
+                    itemsArray.forEach(it => {
+                        totalVendorPayable += it.totalCost;
+                        grandTotalQty += it.totalQty;
+                        let costDisplay = it.cost === 0 ? `<span class="text-red-500 font-bold">$0 (未設進價)</span>` : `$${it.cost.toLocaleString()}`;
+
+                        vendorTb.innerHTML += `
+                            <tr class="border-b hover:bg-amber-50/50 text-xs">
+                                <td class="p-2.5"><span class="bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-medium">${it.category}</span></td>
+                                <td class="p-2.5 font-bold text-gray-800">${it.name}</td>
+                                <td class="p-2.5 text-center font-extrabold text-blue-600 text-sm">${it.totalQty.toLocaleString()}</td>
+                                <td class="p-2.5 text-center text-gray-500">${it.unit}</td>
+                                <td class="p-2.5 text-right font-medium text-gray-700">${costDisplay}</td>
+                                <td class="p-2.5 text-right font-bold text-amber-800">NT$ ${Math.round(it.totalCost).toLocaleString()}</td>
+                            </tr>
+                        `;
                     });
                 }
+                document.getElementById('totalVendorCost').innerText = `NT$ ${Math.round(totalVendorPayable).toLocaleString()}`;
+                document.getElementById('vendorItemKindCount').innerText = itemsArray.length;
+                document.getElementById('vendorTotalQty').innerText = grandTotalQty.toLocaleString();
+                document.getElementById('vendorTotalCostFooter').innerText = `NT$ ${Math.round(totalVendorPayable).toLocaleString()}`;
             }
+
+            renderReportChart(orders, startDate, endDate);
+            
+            // 呼叫發票清單渲染 (包含篩選)
+            renderOrderList();
+        }
+
+        // --- 發票清單渲染與篩選邏輯 ---
+        function renderOrderList() {
+            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            const orderListDiv = document.getElementById('orderList');
+            if (!orderListDiv) return;
+
+            const filterStart = document.getElementById('orderFilterStart').value;
+            const filterEnd = document.getElementById('orderFilterEnd').value;
+            const filterStore = document.getElementById('orderFilterStore').value;
+
+            // 動態生成下拉選單
+            const storeSelect = document.getElementById('orderFilterStore');
+            const uniqueStores = [...new Set(orders.map(o => o.storeName))].sort();
+            const currentSelection = storeSelect.value;
+            
+            storeSelect.innerHTML = '<option value="all">顯示全部店家</option>';
+            uniqueStores.forEach(store => {
+                let opt = document.createElement('option');
+                opt.value = store;
+                opt.innerText = store;
+                if (store === currentSelection) opt.selected = true;
+                storeSelect.appendChild(opt);
+            });
+
+            // 過濾資料
+            let filteredOrders = orders.filter(o => {
+                let passStart = !filterStart || o.saleDate >= filterStart;
+                let passEnd = !filterEnd || o.saleDate <= filterEnd;
+                let passStore = filterStore === 'all' || o.storeName === filterStore;
+                return passStart && passEnd && passStore;
+            });
+
+            orderListDiv.innerHTML = '';
+            if (filteredOrders.length === 0) {
+                orderListDiv.innerHTML = '<p class="text-gray-500 text-sm p-4 bg-gray-50 rounded border border-dashed">目前尚無符合篩選條件之發票單據。</p>';
+                return;
+            }
+
+            // 渲染資料
+            const sortedOrders = filteredOrders.sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
+            sortedOrders.forEach(o => {
+                let itemsHtml = o.items.map(it => `<tr class="border-b text-xs"><td class="p-1 text-gray-700">${it.name}</td><td class="p-1 text-center">${it.qty} ${it.unit || ''}</td><td class="p-1 text-right">$${it.price ? it.price.toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(進價:$${it.cost || 0})</span></td><td class="p-1 text-right font-medium">$${it.subtotal ? it.subtotal.toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(總成本:$${it.subCost || 0})</span></td></tr>`).join('');
+                let incomeDateDisplay = o.expectedIncomeDate || calculateIncomeDate(o.saleDate);
+                
+                orderListDiv.innerHTML += `
+                    <div class="border rounded-lg p-4 ${o.isCleared ? 'bg-gray-100 opacity-90' : 'bg-gray-50'} shadow-sm space-y-3 relative">
+                        ${o.isCleared ? '<div class="absolute top-4 right-4 text-4xl opacity-10 transform rotate-12 font-black">已沖帳</div>' : ''}
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="${o.isCleared ? 'bg-gray-500' : 'bg-blue-600'} text-white text-xs px-2 py-0.5 rounded font-bold">${o.invoiceNumber || '無號碼'}</span>
+                                <span class="font-bold text-gray-800 text-base">${o.storeName}</span>
+                                
+                                <button onclick="editInvoiceBasicInfo('${o.invoiceNumber}')" class="bg-gray-200 text-gray-800 hover:bg-gray-300 text-xs px-2 py-0.5 rounded font-bold border border-gray-400 ${o.isCleared ? 'hidden' : ''}">📝 修改發票</button>
+                                <button onclick="updateInvoiceStoreName('${o.invoiceNumber}')" class="bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs px-2 py-0.5 rounded font-bold border border-amber-300 ${o.isCleared ? 'hidden' : ''}">✏️ 修改店家</button>
+                                <button onclick="adjustInvoiceAmount('${o.invoiceNumber}')" class="bg-purple-100 text-purple-800 hover:bg-purple-200 text-xs px-2 py-0.5 rounded font-bold border border-purple-300 ${o.isCleared ? 'hidden' : ''}">💰 微調金額</button>
+                                <button onclick="extendInvoiceDate('${o.invoiceNumber}')" class="bg-sky-100 text-sky-800 hover:bg-sky-200 text-xs px-2 py-0.5 rounded font-bold border border-sky-300 ${o.isCleared ? 'hidden' : ''}">📅 展延帳期</button>
+                                <button onclick="clearInvoice('${o.invoiceNumber}')" class="bg-green-100 text-green-800 hover:bg-green-200 text-xs px-2 py-0.5 rounded font-bold border border-green-300">${o.isCleared ? '↩️ 取消沖帳' : '✅ 沖帳 (確認收款)'}</button>
+                            </div>
+                            <div class="text-xs text-gray-500 space-x-2">
+                                <span>發票日期：<strong class="text-gray-700">${o.saleDate}</strong></span>
+                                <span>➔ 預計金流：<strong class="${o.isCleared ? 'text-gray-500 bg-gray-200 line-through' : 'text-emerald-700 bg-emerald-50'} px-1.5 py-0.5 rounded border border-gray-200">${incomeDateDisplay}</strong></span>
+                                ${o.isCleared ? `<span class="text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 font-bold ml-1">✅ 於 ${o.clearedDate} 實際入帳</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left bg-white rounded border ${o.isCleared ? 'opacity-70' : ''}">
+                                <thead><tr class="bg-gray-100 text-gray-600 text-xs"><th class="p-1.5">品名</th><th class="p-1.5 text-center w-16">數量</th><th class="p-1.5 text-right w-20">單價</th><th class="p-1.5 text-right w-24">小計</th></tr></thead>
+                                <tbody>${itemsHtml}</tbody>
+                            </table>
+                        </div>
+                        <div class="flex justify-end gap-4 text-xs pt-1 border-t font-semibold text-gray-700 items-center">
+                            <span>銷售額 (未稅)：$${(o.subTotalNoTax || 0).toLocaleString()}</span>
+                            <span>稅額：$${(o.taxAmount || 0).toLocaleString()}</span>
+                            <span class="text-blue-800 font-bold text-sm">總計 (含稅)：$${(o.totalAmount || 0).toLocaleString()}</span>
+                            <span class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-sm font-bold border border-emerald-300">此單毛利：$${(o.totalProfit || 0).toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function clearOrderFilters() {
+            document.getElementById('orderFilterStart').value = '';
+            document.getElementById('orderFilterEnd').value = '';
+            document.getElementById('orderFilterStore').value = 'all';
+            renderOrderList();
+        }
+
+        // --- 匯出廠商對帳 Excel 表 ---
+        function exportVendorSummaryExcel() {
+            const startDate = document.getElementById('reportStartDate').value || '未指定起日';
+            const endDate = document.getElementById('reportEndDate').value || '未指定迄日';
+            const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            const products = JSON.parse(localStorage.getItem('pos_products')) || [];
+
+            let itemSummaryMap = {};
+            orders.forEach(o => {
+                if ((!startDate || o.saleDate >= startDate) && (!endDate || o.saleDate <= endDate)) {
+                    if (o.items && Array.isArray(o.items)) {
+                        o.items.forEach(it => {
+                            if (!itemSummaryMap[it.name]) {
+                                let prod = products.find(p => p.name === it.name);
+                                itemSummaryMap[it.name] = {
+                                    name: it.name,
+                                    category: prod ? prod.category : '未分類',
+                                    unit: it.unit || (prod ? prod.unit : '只'),
+                                    cost: (prod && prod.cost !== undefined) ? prod.cost : (it.cost || 0),
+                                    totalQty: 0,
+                                    totalCost: 0
+                                };
+                            }
+                            let currentCost = itemSummaryMap[it.name].cost;
+                            itemSummaryMap[it.name].totalQty += (it.qty || 0);
+                            itemSummaryMap[it.name].totalCost += ((it.qty || 0) * currentCost);
+                        });
+                    }
+                }
+            });
+
+            let itemsArray = Object.values(itemSummaryMap);
+            if (itemsArray.length === 0) return alert('此區間內無銷售資料可匯出！');
+
+            itemsArray.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+
+            let exportData = itemsArray.map((it, idx) => ({
+                "序號": idx + 1,
+                "商品分類": it.category,
+                "商品名稱規格": it.name,
+                "區間銷貨總量": it.totalQty,
+                "單位": it.unit,
+                "未稅進價單價": it.cost,
+                "預估採購總額(未稅)": Math.round(it.totalCost)
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "廠商對帳明細");
+            XLSX.writeFile(wb, `進貨廠商銷貨對帳表_${startDate}_至_${endDate}.xlsx`);
         }
 
         function renderReportChart(orders, startDate, endDate) {
@@ -1017,7 +1369,6 @@ async function loadFromCloud() {
             document.getElementById('cName').value = ''; document.getElementById('cCode').value = ''; document.getElementById('cGroup').value = ''; document.getElementById('cTaxId').value = ''; document.getElementById('cAddress').value = '';
         }
 
-        // --- 商品成本修復 (包含回溯訂單更新) ---
         function saveProduct() {
             let name = document.getElementById('pName').value.trim();
             if (!name) return alert('請輸入商品名稱！');
@@ -1030,7 +1381,6 @@ async function loadFromCloud() {
             else products.push(productData);
             localStorage.setItem('pos_products', JSON.stringify(products));
 
-            // 回溯更新訂單毛利
             let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
             let ordersUpdated = false;
             orders.forEach(order => {
@@ -1052,7 +1402,6 @@ async function loadFromCloud() {
             alert(`已成功儲存商品：${name}，並同步更新相關訂單的成本與毛利！`);
         }
 
-        // --- 防呆機制 ---
         function deleteCustomer(name) {
             if (!confirm(`確定要刪除客戶「${name}」嗎？刪除後將無法復原！`)) return;
             let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
@@ -1067,7 +1416,6 @@ async function loadFromCloud() {
             renderProductTable();
         }
 
-        // --- 本地備份匯出匯入 (包含自動偵測缺漏商品) ---
         function exportLocalBackup() {
             const backup = {};
             for (let i = 0; i < localStorage.length; i++) { let k = localStorage.key(i); backup[k] = localStorage.getItem(k); }
@@ -1095,7 +1443,6 @@ async function loadFromCloud() {
                         if(order.items) {
                             order.items.forEach(item => {
                                 let prod = products.find(p => p.name === item.name);
-                                // 💡 修改：不但檢查商品是否存在，也檢查成本是否為 0 或沒填
                                 if (!prod || !prod.cost || prod.cost === 0) { 
                                     if (!prod) {
                                         prod = { category: defaultCategory, name: item.name, cost: 0, unit: item.unit || '只' }; 
@@ -1109,7 +1456,6 @@ async function loadFromCloud() {
 
                     if (missingProducts.length > 0) {
                         localStorage.setItem('pos_products', JSON.stringify(products));
-                        
                         alert(`還原成功！\n\n⚠️ 系統偵測到歷史紀錄中有 ${missingProducts.length} 項全新或「未填成本」的商品，已自動為您補上：\n${missingProducts.slice(0, 3).join('、')}${missingProducts.length > 3 ? '...等' : ''}\n\n已自動切換至「商品成本」頁面，請記得補填未稅進價成本！`);
                         
                         singleItems = JSON.parse(localStorage.getItem('cf_single_v11')) || [];
@@ -1141,7 +1487,6 @@ async function loadFromCloud() {
             reader.readAsText(file);
         }
 
-        // --- 報表對帳單 Modals ---
         function openStatementModal(storeName) {
             currentStatementStore = storeName;
             document.getElementById('startDate').value = document.getElementById('reportStartDate').value;
