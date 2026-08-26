@@ -130,12 +130,12 @@
                 </div>
             </div>
 
-            <!-- 📦 新增：廠商進貨品項與銷貨數量對帳彙總 -->
+            <!-- 📦 廠商進貨品項與銷貨數量對帳彙總 -->
             <div class="border-t pt-4">
                 <div class="flex justify-between items-center mb-3">
                     <div>
                         <h3 class="text-lg font-bold text-gray-700">📦 進貨廠商銷貨品項與成本對帳彙總</h3>
-                        <p class="text-xs text-gray-500">自動彙總選定區間內所有售出品項總量，用於核對廠商送貨單與預估應付貨款。</p>
+                        <p class="text-xs text-gray-500">自動彙總選定區間內所有售出品項總量，用於核對廠商送貨單與預估應付貨款。(此表依「實際出貨日」計算)</p>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-lg text-right">
@@ -483,6 +483,46 @@
         </div>
     </div>
 
+    <!-- 📦 新增：統一編輯發票內容與明細 Modal -->
+    <div id="editInvoiceModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 relative max-h-[95vh] overflow-y-auto">
+            <button onclick="closeEditInvoiceModal()" class="absolute top-4 right-4 text-gray-400 text-2xl font-bold">✕</button>
+            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-800">📝 編輯單據內容 (<span id="editInvNumDisplay"></span>)</h2>
+
+            <input type="hidden" id="editInvNumOriginal">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div><label class="text-xs font-bold text-gray-600">店家名稱</label><input type="text" id="editInvStore" class="w-full border rounded p-2 text-sm font-bold text-blue-800"></div>
+                <div><label class="text-xs font-bold text-gray-600">發票號碼</label><input type="text" id="editInvNumber" class="w-full border rounded p-2 text-sm text-gray-600"></div>
+                <div><label class="text-xs font-bold text-gray-600">發票日期 (影響 401 稅務)</label><input type="date" id="editInvSaleDate" class="w-full border rounded p-2 text-sm text-gray-600"></div>
+                <div><label class="text-xs font-bold text-gray-600">出貨日期 (影響廠商對帳)</label><input type="date" id="editInvDeliveryDate" class="w-full border rounded p-2 text-sm text-amber-700 bg-amber-50"></div>
+            </div>
+
+            <h3 class="text-sm font-bold text-blue-900 mb-2 mt-6">📦 銷售商品明細 (請修改數量或未稅單價)</h3>
+            <div class="overflow-x-auto mb-4 border rounded shadow-sm">
+                <table class="w-full text-left bg-white text-sm">
+                    <thead class="bg-blue-50 text-blue-800 text-xs">
+                        <tr>
+                            <th class="p-2 border-b">商品品名</th>
+                            <th class="p-2 w-24 text-center border-b">數量</th>
+                            <th class="p-2 w-28 text-center border-b">單價</th>
+                            <th class="p-2 w-28 text-right border-b">未稅小計</th>
+                        </tr>
+                    </thead>
+                    <tbody id="editInvItemsBody"></tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center border-t pt-4 mt-6">
+                <p class="text-xs text-gray-500">💡 變更數量或單價後，小計會即時更新。儲存後系統將自動重新計算：總稅額、含稅總額及訂單毛利。</p>
+                <div class="flex space-x-3">
+                    <button onclick="closeEditInvoiceModal()" class="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg font-bold hover:bg-gray-300">取消</button>
+                    <button onclick="saveInvoiceEdit()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-blue-700">💾 儲存修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ==========================================
         // ⚠️ 請在這裡貼上你 Google Apps Script 部署後的網址
@@ -803,7 +843,13 @@
                         if (!invoicesMap[currentInvoiceNumber]) {
                             let buyerKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('買方名稱') || k.replace(/\s+/g, '').includes('客戶名稱'));
                             let dateKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('發票日期') || k.replace(/\s+/g, '').includes('日期'));
-                            invoicesMap[currentInvoiceNumber] = { invoiceNumber: currentInvoiceNumber, storeName: buyerKey ? String(row[buyerKey]).trim() : '未知客戶', saleDate: dateKey ? String(row[dateKey]).slice(0, 10).replace(/\//g, '-') : todayStrGlobal, items: [] };
+                            invoicesMap[currentInvoiceNumber] = { 
+                                invoiceNumber: currentInvoiceNumber, 
+                                storeName: buyerKey ? String(row[buyerKey]).trim() : '未知客戶', 
+                                saleDate: dateKey ? String(row[dateKey]).slice(0, 10).replace(/\//g, '-') : todayStrGlobal,
+                                deliveryDate: dateKey ? String(row[dateKey]).slice(0, 10).replace(/\//g, '-') : todayStrGlobal, 
+                                items: [] 
+                            };
                         }
 
                         let nameKey = Object.keys(row).find(k => k.replace(/\s+/g, '').includes('品名'));
@@ -846,7 +892,20 @@
                         let totalAmount = Math.round(subTotalNoTax + taxAmount);
                         let expectedIncomeDate = calculateIncomeDate(inv.saleDate);
 
-                        orders.push({ id: Date.now() + Math.random(), invoiceNumber: inv.invoiceNumber, saleDate: inv.saleDate, expectedIncomeDate, storeName: inv.storeName, items: orderItems, subTotalNoTax, taxAmount, totalAmount, totalProfit: subTotalNoTax - totalCost, isCleared: false });
+                        orders.push({ 
+                            id: Date.now() + Math.random(), 
+                            invoiceNumber: inv.invoiceNumber, 
+                            saleDate: inv.saleDate, 
+                            deliveryDate: inv.deliveryDate, 
+                            expectedIncomeDate, 
+                            storeName: inv.storeName, 
+                            items: orderItems, 
+                            subTotalNoTax, 
+                            taxAmount, 
+                            totalAmount, 
+                            totalProfit: subTotalNoTax - totalCost, 
+                            isCleared: false 
+                        });
                         singleItems.push({ id: Date.now() + Math.random(), date: expectedIncomeDate, name: `[發票入帳] ${inv.storeName} (${inv.invoiceNumber})`, type: 'income', tag: '銷貨收入', amt: totalAmount, invoiceNumber: inv.invoiceNumber, isCleared: false });
                         importCount++;
                     }
@@ -895,51 +954,6 @@
                 loadPOSReports();
                 alert(`✅ 歷史發票毛利已全部重新校正！\n共重新計算了 ${updatedCount} 張發票，請確認數字是否正常。`);
             }
-        }
-
-        function updateInvoiceStoreName(invNum) {
-            let orders = JSON.parse(localStorage.getItem('pos_orders')) || []; let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
-            let order = orders.find(o => o.invoiceNumber === invNum); if (!order) return;
-            let newStoreName = prompt('請輸入新的店家名稱：', order.storeName);
-            if (!newStoreName || !newStoreName.trim() || newStoreName.trim() === order.storeName) return;
-
-            newStoreName = newStoreName.trim(); order.storeName = newStoreName;
-            if (!customers.some(c => c.name === newStoreName)) { customers.push({ name: newStoreName, code: '', group: newStoreName, taxId: '', address: '' }); localStorage.setItem('pos_customers', JSON.stringify(customers)); }
-            singleItems.forEach(item => { if (item.invoiceNumber === invNum || (item.name && item.name.includes(invNum))) item.name = `[發票入帳] ${newStoreName} (${invNum})`; });
-            localStorage.setItem('pos_orders', JSON.stringify(orders)); saveAndUpdateCashflow(); loadPOSReports(); renderCustomerTable();
-            alert('已成功修改店家名稱並同步更新報表與資金排程！');
-        }
-
-        function adjustInvoiceAmount(invNum) {
-            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
-            let orderIndex = orders.findIndex(o => o.invoiceNumber === invNum);
-            if (orderIndex === -1) return;
-            let order = orders[orderIndex];
-
-            let newTaxStr = prompt(`【發票 ${invNum}】\n系統計算的稅額為：${order.taxAmount}\n請輸入實際發票上的正確稅額：`, order.taxAmount);
-            if (newTaxStr === null) return;
-            let newTax = parseInt(newTaxStr, 10);
-            if (isNaN(newTax)) return alert('請輸入有效的數字！');
-
-            let newTotalStr = prompt(`【發票 ${invNum}】\n系統計算的含稅總計為：${order.totalAmount}\n請輸入實際發票上的正確含稅總額：`, order.totalAmount);
-            if (newTotalStr === null) return;
-            let newTotal = parseInt(newTotalStr, 10);
-            if (isNaN(newTotal)) return alert('請輸入有效的數字！');
-
-            order.taxAmount = newTax; order.totalAmount = newTotal; orders[orderIndex] = order;
-            localStorage.setItem('pos_orders', JSON.stringify(orders));
-
-            let itemUpdated = false;
-            singleItems.forEach(item => {
-                if (item.invoiceNumber === invNum || (item.name && item.name.includes(invNum))) { item.amt = newTotal; itemUpdated = true; }
-            });
-            
-            if (itemUpdated) {
-                localStorage.setItem('cf_single_v11', JSON.stringify(singleItems));
-                if (typeof updateCashflowSystem === 'function') updateCashflowSystem();
-            }
-            loadPOSReports();
-            alert('金額微調完成！401 報表數據與預期金流已同步修正。');
         }
 
         // --- 發票展延 (更改入帳月) ---
@@ -1010,63 +1024,133 @@
             loadPOSReports();
         }
 
-        // --- 修改發票基本資訊 (單號與日期) ---
-        function editInvoiceBasicInfo(oldInvNum) {
+        // --- 📦 即時計算單項小計 ---
+        function calcEditSubtotal(inputElem) {
+            let row = inputElem.closest('.edit-item-row');
+            let qty = parseFloat(row.querySelector('.edit-item-qty').value) || 0;
+            let price = parseFloat(row.querySelector('.edit-item-price').value) || 0;
+            row.querySelector('.edit-item-subtotal-display').innerText = Math.round(qty * price).toLocaleString();
+        }
+
+        // --- 📦 新增：統一編輯單據內容 Modal 控制 ---
+        function openEditInvoiceModal(invNum) {
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+            let order = orders.find(o => o.invoiceNumber === invNum);
+            if (!order) return;
+
+            document.getElementById('editInvNumOriginal').value = invNum;
+            document.getElementById('editInvNumDisplay').innerText = invNum || '無號碼';
+            document.getElementById('editInvStore').value = order.storeName;
+            document.getElementById('editInvNumber').value = order.invoiceNumber;
+            document.getElementById('editInvSaleDate').value = order.saleDate;
+            document.getElementById('editInvDeliveryDate').value = order.deliveryDate || order.saleDate;
+
+            let tbody = document.getElementById('editInvItemsBody');
+            tbody.innerHTML = '';
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach((it, idx) => {
+                    let unitPrice = it.price ? it.price : (it.qty ? (it.subtotal / it.qty) : 0);
+                    tbody.innerHTML += `
+                        <tr class="border-b edit-item-row" data-index="${idx}">
+                            <td class="p-2 text-gray-700 font-medium align-middle">${it.name}</td>
+                            <td class="p-2"><input type="number" class="w-full border border-gray-300 rounded p-1 text-center edit-item-qty bg-blue-50" value="${it.qty}" step="any" oninput="calcEditSubtotal(this)"></td>
+                            <td class="p-2"><input type="number" class="w-full border border-gray-300 rounded p-1 text-center edit-item-price bg-blue-50" value="${unitPrice}" step="any" oninput="calcEditSubtotal(this)"></td>
+                            <td class="p-2 text-right font-bold text-gray-600 align-middle"><span class="edit-item-subtotal-display">${Math.round(it.subtotal).toLocaleString()}</span></td>
+                        </tr>
+                    `;
+                });
+            }
+            document.getElementById('editInvoiceModal').classList.remove('hidden');
+        }
+
+        function closeEditInvoiceModal() {
+            document.getElementById('editInvoiceModal').classList.add('hidden');
+        }
+
+        function saveInvoiceEdit() {
+            let oldInvNum = document.getElementById('editInvNumOriginal').value;
             let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
             let orderIndex = orders.findIndex(o => o.invoiceNumber === oldInvNum);
             if (orderIndex === -1) return;
             let order = orders[orderIndex];
 
-            // 1. 修改單號
-            let newInvNum = prompt(`【修改發票資訊】\n請輸入作廢重開/修正後的「新發票號碼」：`, order.invoiceNumber);
-            if (newInvNum === null) return;
-            newInvNum = newInvNum.trim();
+            let newStore = document.getElementById('editInvStore').value.trim();
+            let newInvNum = document.getElementById('editInvNumber').value.trim();
+            let newSaleDate = document.getElementById('editInvSaleDate').value;
+            let newDeliveryDate = document.getElementById('editInvDeliveryDate').value;
+
             if (newInvNum !== oldInvNum && orders.some(o => o.invoiceNumber === newInvNum)) {
                 return alert('修改失敗：系統中已存在相同的發票號碼！');
             }
 
-            // 2. 修改日期
-            let newSaleDate = prompt(`【修改發票資訊】\n請輸入正確的「發票開立日期」 (影響 401 報表區間，格式 YYYY-MM-DD)：`, order.saleDate);
-            if (newSaleDate === null) return;
-            newSaleDate = newSaleDate.trim();
+            // 更新表頭資訊
+            order.storeName = newStore;
+            order.invoiceNumber = newInvNum;
+            order.saleDate = newSaleDate;
+            order.deliveryDate = newDeliveryDate;
 
-            let isModified = false;
-            if (newInvNum && newInvNum !== order.invoiceNumber) {
-                order.invoiceNumber = newInvNum;
-                isModified = true;
-            }
-            if (newSaleDate && newSaleDate !== order.saleDate) {
-                order.saleDate = newSaleDate;
-                isModified = true;
-            }
+            // 重新計算商品明細
+            let rows = document.querySelectorAll('.edit-item-row');
+            let subTotalNoTax = 0;
+            let totalCost = 0;
 
-            if (isModified) {
-                orders[orderIndex] = order;
-                localStorage.setItem('pos_orders', JSON.stringify(orders));
-
-                // 同步修改資金流水帳中的單號
-                let singleItemsArr = JSON.parse(localStorage.getItem('cf_single_v11')) || [];
-                let itemUpdated = false;
-                singleItemsArr.forEach(item => {
-                    if (item.invoiceNumber === oldInvNum) {
-                        item.invoiceNumber = order.invoiceNumber;
-                        item.name = `[發票入帳] ${order.storeName} (${order.invoiceNumber})`;
-                        itemUpdated = true;
-                    }
-                });
-
-                if (itemUpdated) {
-                    singleItems = singleItemsArr;
-                    localStorage.setItem('cf_single_v11', JSON.stringify(singleItems));
-                    updateCashflowSystem();
-                }
+            rows.forEach(row => {
+                let idx = row.getAttribute('data-index');
+                let newQty = parseFloat(row.querySelector('.edit-item-qty').value) || 0;
+                let newPrice = parseFloat(row.querySelector('.edit-item-price').value) || 0;
+                let newSub = Math.round(newQty * newPrice);
                 
-                loadPOSReports();
-                alert('📝 發票資訊修改成功！401報表與資金排程已同步更新。');
+                let it = order.items[idx];
+                it.qty = newQty;
+                it.price = newPrice;
+                it.subtotal = newSub;
+                it.subCost = newQty * (it.cost || 0);
+
+                subTotalNoTax += newSub;
+                totalCost += it.subCost;
+            });
+
+            // 重新計算稅額與利潤
+            order.subTotalNoTax = subTotalNoTax;
+            order.taxAmount = Math.round(subTotalNoTax * 0.05);
+            order.totalAmount = subTotalNoTax + order.taxAmount;
+            order.totalProfit = subTotalNoTax - totalCost;
+
+            orders[orderIndex] = order;
+            localStorage.setItem('pos_orders', JSON.stringify(orders));
+
+            // 同步底層資金預估排程
+            let singleItemsArr = JSON.parse(localStorage.getItem('cf_single_v11')) || [];
+            let itemUpdated = false;
+            singleItemsArr.forEach(item => {
+                if (item.invoiceNumber === oldInvNum) {
+                    item.invoiceNumber = newInvNum;
+                    item.name = `[發票入帳] ${newStore} (${newInvNum})`;
+                    item.amt = order.totalAmount;
+                    itemUpdated = true;
+                }
+            });
+
+            if (itemUpdated) {
+                singleItems = singleItemsArr;
+                localStorage.setItem('cf_single_v11', JSON.stringify(singleItems));
+                updateCashflowSystem();
             }
+
+            // 若店名是新的，自動加入客戶資料庫
+            let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
+            if (!customers.some(c => c.name === newStore)) {
+                customers.push({ name: newStore, code: '', group: newStore, taxId: '', address: '' });
+                localStorage.setItem('pos_customers', JSON.stringify(customers));
+                renderCustomerTable();
+            }
+
+            closeEditInvoiceModal();
+            loadPOSReports();
+            alert('✅ 儲存成功！發票內容、稅額、總金額及利潤已重新計算完成。');
         }
 
-        // --- 報表與對帳總表繪製 ---
+        // --- 報表與對帳總表繪製 (支援雙軌日期) ---
         function loadPOSReports() {
             const orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
             const customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
@@ -1078,7 +1162,11 @@
             let itemSummaryMap = {}; 
 
             orders.forEach(o => {
-                if ((!startDate || o.saleDate >= startDate) && (!endDate || o.saleDate <= endDate)) {
+                let sDate = o.saleDate;
+                let dDate = o.deliveryDate || o.saleDate;
+
+                // 1. 計算業績與稅務 (依據 發票日)
+                if ((!startDate || sDate >= startDate) && (!endDate || sDate <= endDate)) {
                     monthlyRevenue += o.totalAmount;
                     monthlyProfit += (o.totalProfit || 0);
 
@@ -1092,7 +1180,10 @@
                     groupSummary[gName].count += 1;
                     groupSummary[gName].total += o.totalAmount;
                     groupSummary[gName].stores.add(o.storeName);
+                }
 
+                // 2. 統計各品項銷貨數量與成本 (依據 實際出貨日)
+                if ((!startDate || dDate >= startDate) && (!endDate || dDate <= endDate)) {
                     if (o.items && Array.isArray(o.items)) {
                         o.items.forEach(it => {
                             if (!itemSummaryMap[it.name]) {
@@ -1209,11 +1300,12 @@
                 return;
             }
 
-            // 渲染資料
+            // 渲染資料 (加入實際出貨日標示)
             const sortedOrders = filteredOrders.sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
             sortedOrders.forEach(o => {
-                let itemsHtml = o.items.map(it => `<tr class="border-b text-xs"><td class="p-1 text-gray-700">${it.name}</td><td class="p-1 text-center">${it.qty} ${it.unit || ''}</td><td class="p-1 text-right">$${it.price ? it.price.toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(進價:$${it.cost || 0})</span></td><td class="p-1 text-right font-medium">$${it.subtotal ? it.subtotal.toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(總成本:$${it.subCost || 0})</span></td></tr>`).join('');
+                let itemsHtml = o.items.map(it => `<tr class="border-b text-xs"><td class="p-1 text-gray-700">${it.name}</td><td class="p-1 text-center">${it.qty} ${it.unit || ''}</td><td class="p-1 text-right">$${it.price ? it.price.toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(進價:$${it.cost || 0})</span></td><td class="p-1 text-right font-medium">$${it.subtotal ? Math.round(it.subtotal).toLocaleString() : 0}<br><span class="text-gray-400 text-[10px]">(總成本:$${it.subCost || 0})</span></td></tr>`).join('');
                 let incomeDateDisplay = o.expectedIncomeDate || calculateIncomeDate(o.saleDate);
+                let isDeliveryDiff = o.deliveryDate && o.deliveryDate !== o.saleDate;
                 
                 orderListDiv.innerHTML += `
                     <div class="border rounded-lg p-4 ${o.isCleared ? 'bg-gray-100 opacity-90' : 'bg-gray-50'} shadow-sm space-y-3 relative">
@@ -1223,16 +1315,16 @@
                                 <span class="${o.isCleared ? 'bg-gray-500' : 'bg-blue-600'} text-white text-xs px-2 py-0.5 rounded font-bold">${o.invoiceNumber || '無號碼'}</span>
                                 <span class="font-bold text-gray-800 text-base">${o.storeName}</span>
                                 
-                                <button onclick="editInvoiceBasicInfo('${o.invoiceNumber}')" class="bg-gray-200 text-gray-800 hover:bg-gray-300 text-xs px-2 py-0.5 rounded font-bold border border-gray-400 ${o.isCleared ? 'hidden' : ''}">📝 修改發票</button>
-                                <button onclick="updateInvoiceStoreName('${o.invoiceNumber}')" class="bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs px-2 py-0.5 rounded font-bold border border-amber-300 ${o.isCleared ? 'hidden' : ''}">✏️ 修改店家</button>
-                                <button onclick="adjustInvoiceAmount('${o.invoiceNumber}')" class="bg-purple-100 text-purple-800 hover:bg-purple-200 text-xs px-2 py-0.5 rounded font-bold border border-purple-300 ${o.isCleared ? 'hidden' : ''}">💰 微調金額</button>
+                                <!-- 統一的編輯單據按鈕 -->
+                                <button onclick="openEditInvoiceModal('${o.invoiceNumber}')" class="bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs px-2 py-0.5 rounded font-bold border border-amber-300 ${o.isCleared ? 'hidden' : ''}">✏️ 編輯單據內容</button>
                                 <button onclick="extendInvoiceDate('${o.invoiceNumber}')" class="bg-sky-100 text-sky-800 hover:bg-sky-200 text-xs px-2 py-0.5 rounded font-bold border border-sky-300 ${o.isCleared ? 'hidden' : ''}">📅 展延帳期</button>
                                 <button onclick="clearInvoice('${o.invoiceNumber}')" class="bg-green-100 text-green-800 hover:bg-green-200 text-xs px-2 py-0.5 rounded font-bold border border-green-300">${o.isCleared ? '↩️ 取消沖帳' : '✅ 沖帳 (確認收款)'}</button>
                             </div>
-                            <div class="text-xs text-gray-500 space-x-2">
-                                <span>發票日期：<strong class="text-gray-700">${o.saleDate}</strong></span>
+                            <div class="text-xs text-gray-500 space-x-2 mt-2 md:mt-0">
+                                <span>發票日：<strong class="text-gray-700">${o.saleDate}</strong></span>
+                                ${isDeliveryDiff ? `<span class="text-amber-800 bg-amber-50 px-1 rounded border border-amber-200 font-bold">出貨日：${o.deliveryDate}</span>` : ''}
                                 <span>➔ 預計金流：<strong class="${o.isCleared ? 'text-gray-500 bg-gray-200 line-through' : 'text-emerald-700 bg-emerald-50'} px-1.5 py-0.5 rounded border border-gray-200">${incomeDateDisplay}</strong></span>
-                                ${o.isCleared ? `<span class="text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 font-bold ml-1">✅ 於 ${o.clearedDate} 實際入帳</span>` : ''}
+                                ${o.isCleared ? `<span class="text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 font-bold ml-1 block mt-1 md:inline md:mt-0">✅ 於 ${o.clearedDate} 實際入帳</span>` : ''}
                             </div>
                         </div>
                         <div class="overflow-x-auto">
@@ -1258,7 +1350,7 @@
             renderOrderList();
         }
 
-        // --- 匯出廠商對帳 Excel 表 ---
+        // --- 匯出廠商對帳 Excel 表 (依出貨日) ---
         function exportVendorSummaryExcel() {
             const startDate = document.getElementById('reportStartDate').value || '未指定起日';
             const endDate = document.getElementById('reportEndDate').value || '未指定迄日';
@@ -1267,7 +1359,8 @@
 
             let itemSummaryMap = {};
             orders.forEach(o => {
-                if ((!startDate || o.saleDate >= startDate) && (!endDate || o.saleDate <= endDate)) {
+                let dDate = o.deliveryDate || o.saleDate;
+                if ((!startDate || dDate >= startDate) && (!endDate || dDate <= endDate)) {
                     if (o.items && Array.isArray(o.items)) {
                         o.items.forEach(it => {
                             if (!itemSummaryMap[it.name]) {
