@@ -558,7 +558,7 @@
             <input type="hidden" id="editInvNumOriginal">
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div><label class="text-xs font-bold text-gray-600">店家名稱</label><input type="text" id="editInvStore" class="w-full border rounded p-2 text-sm font-bold text-blue-800"></div>
+                <div><label class="text-xs font-bold text-gray-600">店家名稱</label><select id="editInvStore" class="w-full border rounded p-2 text-sm font-bold text-blue-800 bg-white"></select></div>
                 <div><label class="text-xs font-bold text-gray-600">發票號碼</label><input type="text" id="editInvNumber" class="w-full border rounded p-2 text-sm text-gray-600"></div>
                 <div><label class="text-xs font-bold text-gray-600">發票日期 (影響 401 稅務)</label><input type="date" id="editInvSaleDate" class="w-full border rounded p-2 text-sm text-gray-600"></div>
                 <div><label class="text-xs font-bold text-gray-600">出貨日期 (影響廠商對帳)</label><input type="date" id="editInvDeliveryDate" class="w-full border rounded p-2 text-sm text-amber-700 bg-amber-50"></div>
@@ -943,10 +943,29 @@
         }
 
         function openEditInvoiceModal(invNum) {
-            let orders = JSON.parse(localStorage.getItem('pos_orders')) || []; let order = orders.find(o => o.invoiceNumber === invNum); if (!order) return;
-            document.getElementById('editInvNumOriginal').value = invNum; document.getElementById('editInvNumDisplay').innerText = invNum || '無號碼';
-            document.getElementById('editInvStore').value = order.storeName; document.getElementById('editInvNumber').value = order.invoiceNumber;
-            document.getElementById('editInvSaleDate').value = order.saleDate; document.getElementById('editInvDeliveryDate').value = order.deliveryDate || order.saleDate;
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || []; 
+            let order = orders.find(o => o.invoiceNumber === invNum); 
+            if (!order) return;
+            
+            document.getElementById('editInvNumOriginal').value = invNum; 
+            document.getElementById('editInvNumDisplay').innerText = invNum || '無號碼';
+            
+            // 🔄 新增：動態載入客戶名單做為下拉選單
+            let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
+            let storeSelect = document.getElementById('editInvStore');
+            storeSelect.innerHTML = ''; // 清空選項
+            customers.forEach(c => {
+                storeSelect.innerHTML += `<option value="${c.name}">${c.name}</option>`;
+            });
+            // 防呆：如果這張發票的客戶剛好不在名單內，還是要把他加進選項，以免原本的名字不見
+            if (!customers.some(c => c.name === order.storeName)) {
+                storeSelect.innerHTML += `<option value="${order.storeName}">${order.storeName}</option>`;
+            }
+            storeSelect.value = order.storeName;
+
+            document.getElementById('editInvNumber').value = order.invoiceNumber;
+            document.getElementById('editInvSaleDate').value = order.saleDate; 
+            document.getElementById('editInvDeliveryDate').value = order.deliveryDate || order.saleDate;
 
             let tbody = document.getElementById('editInvItemsBody'); tbody.innerHTML = '';
             if (order.items && Array.isArray(order.items)) {
