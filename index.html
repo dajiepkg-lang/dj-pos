@@ -378,7 +378,7 @@
             </div>
             
             <div class="bg-gray-50 p-4 rounded-lg border mb-4 flex flex-wrap gap-4 items-center">
-                <span class="font-bold text-gray-700">🔍 篩選條件：</span>
+                <span class="font-bold text-gray-700 w-full md:w-auto">🔍 篩選條件：</span>
                 <div class="flex items-center space-x-2">
                     <label class="text-xs font-bold text-gray-600">發票起日</label>
                     <input type="date" id="orderFilterStart" class="border rounded p-1.5 text-sm" onchange="renderOrderList()">
@@ -393,6 +393,25 @@
                         <option value="all">顯示全部店家</option>
                     </select>
                 </div>
+                
+                <!-- 🌟 新增的兩個篩選條件 🌟 -->
+                <div class="flex items-center space-x-2">
+                    <label class="text-xs font-bold text-gray-600">交發票狀態</label>
+                    <select id="orderFilterPrinted" class="border rounded p-1.5 text-sm bg-white" onchange="renderOrderList()">
+                        <option value="all">全部</option>
+                        <option value="printed">🖨️ 已交發票</option>
+                        <option value="unprinted">未交發票</option>
+                    </select>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label class="text-xs font-bold text-gray-600">請款狀態</label>
+                    <select id="orderFilterBilled" class="border rounded p-1.5 text-sm bg-white" onchange="renderOrderList()">
+                        <option value="all">全部</option>
+                        <option value="billed">📄 已結算請款</option>
+                        <option value="unbilled">未請款</option>
+                    </select>
+                </div>
+                
                 <button onclick="clearOrderFilters()" class="bg-gray-200 text-gray-700 hover:bg-gray-300 text-xs px-3 py-1.5 rounded font-bold border border-gray-400 shadow-sm">清除篩選</button>
             </div>
 
@@ -1204,15 +1223,30 @@
             renderReportChart(orders, startDate, endDate); renderOrderList();
         }
 
-        // 1. 發票單據排序更新 & 按鈕新增
+        // 1. 發票單據排序更新 & 篩選邏輯新增
         function renderOrderList() {
             const orders = JSON.parse(localStorage.getItem('pos_orders')) || []; const orderListDiv = document.getElementById('orderList'); if (!orderListDiv) return;
-            const filterStart = document.getElementById('orderFilterStart').value; const filterEnd = document.getElementById('orderFilterEnd').value; const filterStore = document.getElementById('orderFilterStore').value;
+            const filterStart = document.getElementById('orderFilterStart').value; 
+            const filterEnd = document.getElementById('orderFilterEnd').value; 
+            const filterStore = document.getElementById('orderFilterStore').value;
+            const filterPrinted = document.getElementById('orderFilterPrinted').value; // 新增：交發票篩選
+            const filterBilled = document.getElementById('orderFilterBilled').value; // 新增：請款篩選
 
             const storeSelect = document.getElementById('orderFilterStore'); const uniqueStores = [...new Set(orders.map(o => o.storeName))].sort(); const currentSelection = storeSelect.value;
             storeSelect.innerHTML = '<option value="all">顯示全部店家</option>'; uniqueStores.forEach(store => { let opt = document.createElement('option'); opt.value = store; opt.innerText = store; if (store === currentSelection) opt.selected = true; storeSelect.appendChild(opt); });
 
-            let filteredOrders = orders.filter(o => { let passStart = !filterStart || o.saleDate >= filterStart; let passEnd = !filterEnd || o.saleDate <= filterEnd; let passStore = filterStore === 'all' || o.storeName === filterStore; return passStart && passEnd && passStore; });
+            let filteredOrders = orders.filter(o => { 
+                let passStart = !filterStart || o.saleDate >= filterStart; 
+                let passEnd = !filterEnd || o.saleDate <= filterEnd; 
+                let passStore = filterStore === 'all' || o.storeName === filterStore; 
+                
+                // 新增篩選邏輯
+                let passPrinted = filterPrinted === 'all' || (filterPrinted === 'printed' ? o.isPrinted : !o.isPrinted);
+                let passBilled = filterBilled === 'all' || (filterBilled === 'billed' ? o.isBilled : !o.isBilled);
+
+                return passStart && passEnd && passStore && passPrinted && passBilled; 
+            });
+            
             orderListDiv.innerHTML = '';
             if (filteredOrders.length === 0) { orderListDiv.innerHTML = '<p class="text-gray-500 text-sm p-4 bg-gray-50 rounded border border-dashed">目前尚無符合篩選條件之發票單據。</p>'; return; }
 
@@ -1305,10 +1339,22 @@
             }
         }
 
-        function clearOrderFilters() { document.getElementById('orderFilterStart').value = ''; document.getElementById('orderFilterEnd').value = ''; document.getElementById('orderFilterStore').value = 'all'; renderOrderList(); }
+        function clearOrderFilters() { 
+            document.getElementById('orderFilterStart').value = ''; 
+            document.getElementById('orderFilterEnd').value = ''; 
+            document.getElementById('orderFilterStore').value = 'all'; 
+            document.getElementById('orderFilterPrinted').value = 'all'; // 清除篩選
+            document.getElementById('orderFilterBilled').value = 'all';  // 清除篩選
+            renderOrderList(); 
+        }
 
+        // 🌟 新增：匯出廠商對帳 Excel 後自動詢問是否標記已請款
         function exportVendorSummaryExcel() {
-            const startDate = document.getElementById('reportStartDate').value || '未指定起日'; const endDate = document.getElementById('reportEndDate').value || '未指定迄日'; const orders = JSON.parse(localStorage.getItem('pos_orders')) || []; const products = JSON.parse(localStorage.getItem('pos_products')) || [];
+            const startDate = document.getElementById('reportStartDate').value || ''; 
+            const endDate = document.getElementById('reportEndDate').value || ''; 
+            const orders = JSON.parse(localStorage.getItem('pos_orders')) || []; 
+            const products = JSON.parse(localStorage.getItem('pos_products')) || [];
+            
             let itemSummaryMap = {};
             orders.forEach(o => {
                 let dDate = o.deliveryDate || o.saleDate;
@@ -1324,7 +1370,32 @@
             let itemsArray = Object.values(itemSummaryMap); if (itemsArray.length === 0) return alert('此區間內無銷售資料可匯出！');
             itemsArray.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
             let exportData = itemsArray.map((it, idx) => ({ "序號": idx + 1, "商品分類": it.category, "商品名稱規格": it.name, "區間銷貨總量": it.totalQty, "單位": it.unit, "未稅進價單價": it.cost, "預估採購總額(未稅)": Math.round(it.totalCost) }));
-            const ws = XLSX.utils.json_to_sheet(exportData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "廠商對帳明細"); XLSX.writeFile(wb, `進貨廠商銷貨對帳表_${startDate}_至_${endDate}.xlsx`);
+            const ws = XLSX.utils.json_to_sheet(exportData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "廠商對帳明細"); 
+            
+            let fileNameStart = startDate || '起';
+            let fileNameEnd = endDate || '迄';
+            XLSX.writeFile(wb, `進貨廠商銷貨對帳表_${fileNameStart}_至_${fileNameEnd}.xlsx`);
+
+            // 新增：匯出後的自動標記詢問
+            setTimeout(() => {
+                if (confirm(`Excel 匯出成功！\n\n請問是否要將此區間 (${fileNameStart} ~ ${fileNameEnd}) 的所有單據自動標記為【📄 已結算請款】？\n\n(點「確定」會自動幫你在「發票單據管理」中更新狀態)`)) {
+                    let updated = false;
+                    orders.forEach(o => {
+                        let dDate = o.deliveryDate || o.saleDate;
+                        if ((!startDate || dDate >= startDate) && (!endDate || dDate <= endDate)) {
+                            if (!o.isBilled) {
+                                o.isBilled = true;
+                                updated = true;
+                            }
+                        }
+                    });
+                    if (updated) {
+                        localStorage.setItem('pos_orders', JSON.stringify(orders));
+                        if (!document.getElementById('tab-orders').classList.contains('hidden')) renderOrderList();
+                        alert('✅ 已成功將該區間的單據標記為「已結算請款」！');
+                    }
+                }
+            }, 500);
         }
 
         function renderReportChart(orders, startDate, endDate) {
@@ -1505,13 +1576,44 @@
             document.getElementById('stTotalNoTax').innerText = `NT$ ${totalNoTax.toFixed(2)}`; document.getElementById('stTotalTax').innerText = `NT$ ${totalTax}`; document.getElementById('stTotalTaxable').innerText = `NT$ ${totalNoTax.toFixed(2)}`; document.getElementById('stGrandTotal').innerText = `NT$ ${grandTotal.toLocaleString()}`;
         }
         
+        // 🌟 新增：客戶對帳單列印後自動詢問是否標記已請款
         function printStatement() { 
             let contents = document.getElementById('statementPrintArea').innerHTML; 
             let printArea = document.getElementById('globalStatementPrint');
             printArea.innerHTML = contents;
             printArea.classList.remove('hidden');
             document.body.classList.add('printing-statement');
-            setTimeout(() => { window.print(); printArea.innerHTML = ''; printArea.classList.add('hidden'); document.body.classList.remove('printing-statement'); }, 300); 
+
+            const store = currentStatementStore;
+            const start = document.getElementById('startDate').value; 
+            const end = document.getElementById('endDate').value;
+
+            setTimeout(() => { 
+                window.print(); 
+                printArea.innerHTML = ''; 
+                printArea.classList.add('hidden'); 
+                document.body.classList.remove('printing-statement'); 
+                
+                setTimeout(() => {
+                    if (confirm(`請問對帳單是否列印成功？\n\n點「確定」：將自動把此對帳單區間內，【${store}】的所有發票標記為【📄 已結算請款】\n點「取消」：維持原狀態`)) {
+                        let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
+                        let updated = false;
+                        orders.forEach(o => {
+                            if (o.storeName === store && o.saleDate >= start && o.saleDate <= end) {
+                                if (!o.isBilled) {
+                                    o.isBilled = true;
+                                    updated = true;
+                                }
+                            }
+                        });
+                        if (updated) {
+                            localStorage.setItem('pos_orders', JSON.stringify(orders));
+                            if (!document.getElementById('tab-orders').classList.contains('hidden')) renderOrderList();
+                            alert(`✅ 已成功將 ${store} 在此區間的單據標記為「已結算請款」！`);
+                        }
+                    }
+                }, 100);
+            }, 300); 
         }
         
         function open401Modal() { document.getElementById('tax401Modal').classList.remove('hidden'); }
