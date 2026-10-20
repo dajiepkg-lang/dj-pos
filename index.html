@@ -1588,7 +1588,7 @@
                 let btn = document.getElementById('customerSubmitBtn');
                 btn.innerText = '新增客戶';
                 btn.classList.replace('bg-blue-600', 'bg-emerald-600');
-                btn.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
+                btn.classList.replace('hover:bg-emerald-700', 'hover:bg-emerald-700');
                 alert('✅ 客戶資料已成功更新！');
             } else {
                 if (customers.some(c => c.name === name)) return alert('客戶名稱已經存在！');
