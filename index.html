@@ -702,7 +702,7 @@
             }
         }
 
-       async function loadFromCloud() {
+        async function loadFromCloud() {
             if (!API_URL) return alert("請先在程式碼中設定 API_URL！");
             if (!confirm('確定要從雲端載入資料嗎？這將會覆蓋你目前畫面上的所有紀錄！')) return;
             const btn = document.getElementById('btn-load');
@@ -718,14 +718,12 @@
                 try {
                     const data = JSON.parse(text);
                     if (data.status === 'success') {
-                        // 1. 處理基礎現金流水位與設定
                         if (data.singleItems) localStorage.setItem('cf_single_v11', typeof data.singleItems === 'string' ? data.singleItems : JSON.stringify(data.singleItems));
                         if (data.recurringItems) localStorage.setItem('cf_recurring_v11', typeof data.recurringItems === 'string' ? data.recurringItems : JSON.stringify(data.recurringItems));
                         if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
                         if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
                         if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
                         
-                        // 2. 🔥 強悍解析 fullBackup (解決發票與商品無法更新的問題)
                         if (data.fullBackup) {
                             const forceCleanStringify = (val) => {
                                 if (!val) return "[]";
@@ -760,29 +758,6 @@
                 }
             } catch (error) { 
                 alert('連線失敗：\n' + error.message); 
-                console.error(error);
-            } finally { 
-                btn.innerText = originalText; btn.disabled = false; 
-            }
-        }
-
-                            if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', forceCleanStringify(data.fullBackup.pos_categories));
-                            if (data.fullBackup.pos_products) localStorage.setItem('pos_products', forceCleanStringify(data.fullBackup.pos_products));
-                            if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', forceCleanStringify(data.fullBackup.pos_customers));
-                            if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', forceCleanStringify(data.fullBackup.pos_orders));
-                        }
-                        
-                        alert('☁️ 已成功從雲端載入資料！'); 
-                        location.reload(); 
-                    } else {
-                        alert('載入失敗：' + data.message);
-                    }
-                } catch(e) {
-                    console.error("伺服器回傳內容:", text);
-                    throw new Error("回傳格式錯誤，請確認 Apps Script 權限是否設為「所有人」。");
-                }
-            } catch (error) { 
-                alert('連線失敗：\n' + error.message + '\n\n💡 請按 F12 打開開發者工具查看詳細錯誤。'); 
                 console.error(error);
             } finally { 
                 btn.innerText = originalText; btn.disabled = false; 
@@ -986,7 +961,6 @@
             reader.readAsArrayBuffer(fileInput.files[0]);
         }
 
-        // --- 🗑️ 新增：刪除整張發票單據 ---
         function deleteOrder(invNum) {
             if (!confirm(`確定要徹底刪除發票 ${invNum} 嗎？\n⚠️ 注意：這將會同步刪除該筆單據對應的「預計現金流」紀錄！\n(刪除後無法復原)`)) return;
             
@@ -1004,7 +978,6 @@
             alert('🗑️ 刪除成功！資金預估表已同步更新。');
         }
 
-        // --- ⚠️ 新增：開啟/關閉 區間校正歷史毛利 Modal ---
         function openRecalcModal() { 
             document.getElementById('recalcStart').value = document.getElementById('reportStartDate').value; 
             document.getElementById('recalcEnd').value = document.getElementById('reportEndDate').value; 
@@ -1014,7 +987,6 @@
             document.getElementById('recalcProfitModal').classList.add('hidden'); 
         }
 
-        // --- ⚠️ 新增：執行區間校正 ---
         function confirmRecalculateProfits() {
             const start = document.getElementById('recalcStart').value;
             const end = document.getElementById('recalcEnd').value;
@@ -1099,14 +1071,12 @@
             document.getElementById('editInvNumOriginal').value = invNum; 
             document.getElementById('editInvNumDisplay').innerText = invNum || '無號碼';
             
-            // 🔄 新增：動態載入客戶名單做為下拉選單
             let customers = JSON.parse(localStorage.getItem('pos_customers')) || [];
             let storeSelect = document.getElementById('editInvStore');
-            storeSelect.innerHTML = ''; // 清空選項
+            storeSelect.innerHTML = ''; 
             customers.forEach(c => {
                 storeSelect.innerHTML += `<option value="${c.name}">${c.name}</option>`;
             });
-            // 防呆：如果這張發票的客戶剛好不在名單內，還是要把他加進選項，以免原本的名字不見
             if (!customers.some(c => c.name === order.storeName)) {
                 storeSelect.innerHTML += `<option value="${order.storeName}">${order.storeName}</option>`;
             }
@@ -1156,7 +1126,6 @@
             closeEditInvoiceModal(); loadPOSReports(); alert('✅ 儲存成功！');
         }
 
-        // --- 🖨️ 批次勾選列印：支援單張、雙聯與多頁排版 ---
         function printSelectedVouchers() {
             const selectedCheckboxes = document.querySelectorAll('.order-checkbox:checked');
             if (selectedCheckboxes.length === 0) return alert('請先勾選要列印的發票！');
@@ -1280,9 +1249,8 @@
                 printArea.classList.add('hidden');
                 document.body.classList.remove('printing-voucher');
                 
-                // 新增：防呆確認視窗
                 setTimeout(() => {
-                    if (confirm("請問發票是否已經成功印出？\n\n點「確定」：自動將勾選單據標記為【🖨️ 已交發票】\n點「取消」：維持原狀態 (適用於印表機卡紙或取消列印)")) {
+                    if (confirm("請問發票是否已經成功印出？\n\n點「確定」：自動將勾選單據標記為【🖨️ 已交發票】\n點「取消」：維持原狀態")) {
                         let printedAny = false;
                         selectedCheckboxes.forEach(cb => {
                             let order = orders.find(o => o.invoiceNumber === cb.value);
@@ -1296,9 +1264,8 @@
                             renderOrderList();
                         }
                     }
-                    // 取消全選的勾勾
                     document.querySelectorAll('.order-checkbox').forEach(cb => cb.checked = false);
-                }, 100); // 延遲 100ms 讓畫面恢復正常再彈窗
+                }, 100); 
                 
             }, 300);
         }
@@ -1353,14 +1320,13 @@
             renderReportChart(orders, startDate, endDate); renderOrderList();
         }
 
-        // 1. 發票單據排序更新 & 篩選邏輯新增
         function renderOrderList() {
             const orders = JSON.parse(localStorage.getItem('pos_orders')) || []; const orderListDiv = document.getElementById('orderList'); if (!orderListDiv) return;
             const filterStart = document.getElementById('orderFilterStart').value; 
             const filterEnd = document.getElementById('orderFilterEnd').value; 
             const filterStore = document.getElementById('orderFilterStore').value;
-            const filterPrinted = document.getElementById('orderFilterPrinted').value; // 新增：交發票篩選
-            const filterBilled = document.getElementById('orderFilterBilled').value; // 新增：請款篩選
+            const filterPrinted = document.getElementById('orderFilterPrinted').value; 
+            const filterBilled = document.getElementById('orderFilterBilled').value; 
 
             const storeSelect = document.getElementById('orderFilterStore'); const uniqueStores = [...new Set(orders.map(o => o.storeName))].sort(); const currentSelection = storeSelect.value;
             storeSelect.innerHTML = '<option value="all">顯示全部店家</option>'; uniqueStores.forEach(store => { let opt = document.createElement('option'); opt.value = store; opt.innerText = store; if (store === currentSelection) opt.selected = true; storeSelect.appendChild(opt); });
@@ -1370,7 +1336,6 @@
                 let passEnd = !filterEnd || o.saleDate <= filterEnd; 
                 let passStore = filterStore === 'all' || o.storeName === filterStore; 
                 
-                // 新增篩選邏輯
                 let passPrinted = true;
                 if (filterPrinted === 'printed') passPrinted = o.isPrinted;
                 if (filterPrinted === 'unprinted') passPrinted = !o.isPrinted;
@@ -1385,15 +1350,14 @@
             orderListDiv.innerHTML = '';
             if (filteredOrders.length === 0) { orderListDiv.innerHTML = '<p class="text-gray-500 text-sm p-4 bg-gray-50 rounded border border-dashed">目前尚無符合篩選條件之發票單據。</p>'; return; }
 
-            // 排序邏輯：日期由新到舊，若同日期則發票號碼由小到大
             const sortedOrders = filteredOrders.sort((a, b) => {
                 let dateA = new Date(a.saleDate).getTime();
                 let dateB = new Date(b.saleDate).getTime();
-                if (dateA !== dateB) return dateB - dateA; // 日期降冪
+                if (dateA !== dateB) return dateB - dateA; 
                 
                 let invA = a.invoiceNumber || '';
                 let invB = b.invoiceNumber || '';
-                return invA.localeCompare(invB); // 號碼升冪
+                return invA.localeCompare(invB); 
             });
 
             sortedOrders.forEach(o => {
@@ -1414,14 +1378,12 @@
                                     <span class="${o.isCleared ? 'bg-gray-500' : 'bg-blue-600'} text-white text-xs px-2 py-0.5 rounded font-bold">${o.invoiceNumber || '無號碼'}</span>
                                     <span class="font-bold text-gray-800 text-base">${o.storeName}</span>
                                     
-                                    <!-- 新增：狀態標籤 -->
                                     ${o.isPrinted ? '<span class="bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded shadow-sm">🖨️ 已交發票</span>' : ''}
                                     ${o.isBilled ? '<span class="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 rounded shadow-sm">📄 已結算請款</span>' : ''}
                                     
                                     <button onclick="openEditInvoiceModal('${o.invoiceNumber}')" class="bg-amber-100 text-amber-800 hover:bg-amber-200 text-xs px-2 py-0.5 rounded font-bold border border-amber-300 ${o.isCleared ? 'hidden' : ''}">✏️ 編輯單據內容</button>
                                     <button onclick="extendInvoiceDate('${o.invoiceNumber}')" class="bg-sky-100 text-sky-800 hover:bg-sky-200 text-xs px-2 py-0.5 rounded font-bold border border-sky-300 ${o.isCleared ? 'hidden' : ''}">📅 展延帳期</button>
                                     
-                                    <!-- 新增：交發票與結算按鈕 -->
                                     <button onclick="togglePrinted('${o.invoiceNumber}')" class="${o.isPrinted ? 'bg-gray-200 text-gray-600' : 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-300'} text-xs px-2 py-0.5 rounded font-bold border">${o.isPrinted ? '↩️ 取消交發票' : '🖨️ 標記已交發票'}</button>
                                     <button onclick="toggleBilled('${o.invoiceNumber}')" class="${o.isBilled ? 'bg-gray-200 text-gray-600' : 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-300'} text-xs px-2 py-0.5 rounded font-bold border">${o.isBilled ? '↩️ 取消結算' : '📄 標記已請款'}</button>
 
@@ -1452,7 +1414,6 @@
             });
         }
 
-        // --- 🖨️ 新增：標記已交發票 ---
         function togglePrinted(invNum) {
             let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
             let order = orders.find(o => o.invoiceNumber === invNum);
@@ -1463,7 +1424,6 @@
             }
         }
 
-        // --- 📄 新增：標記已結算(請款) ---
         function toggleBilled(invNum) {
             let orders = JSON.parse(localStorage.getItem('pos_orders')) || [];
             let order = orders.find(o => o.invoiceNumber === invNum);
@@ -1478,12 +1438,11 @@
             document.getElementById('orderFilterStart').value = ''; 
             document.getElementById('orderFilterEnd').value = ''; 
             document.getElementById('orderFilterStore').value = 'all'; 
-            document.getElementById('orderFilterPrinted').value = 'all'; // 清除篩選
-            document.getElementById('orderFilterBilled').value = 'all';  // 清除篩選
+            document.getElementById('orderFilterPrinted').value = 'all'; 
+            document.getElementById('orderFilterBilled').value = 'all';  
             renderOrderList(); 
         }
 
-        // 🌟 新增：匯出廠商對帳 Excel 後自動詢問是否標記已請款
         function exportVendorSummaryExcel() {
             const startDate = document.getElementById('reportStartDate').value || ''; 
             const endDate = document.getElementById('reportEndDate').value || ''; 
@@ -1511,7 +1470,6 @@
             let fileNameEnd = endDate || '迄';
             XLSX.writeFile(wb, `進貨廠商銷貨對帳表_${fileNameStart}_至_${fileNameEnd}.xlsx`);
 
-            // 新增：匯出後的自動標記詢問
             setTimeout(() => {
                 if (confirm(`Excel 匯出成功！\n\n請問是否要將此區間 (${fileNameStart} ~ ${fileNameEnd}) 的所有單據自動標記為【📄 已結算請款】？\n\n(點「確定」會自動幫你在「發票單據管理」中更新狀態)`)) {
                     let updated = false;
@@ -1630,7 +1588,7 @@
                 let btn = document.getElementById('customerSubmitBtn');
                 btn.innerText = '新增客戶';
                 btn.classList.replace('bg-blue-600', 'bg-emerald-600');
-                btn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+                btn.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
                 alert('✅ 客戶資料已成功更新！');
             } else {
                 if (customers.some(c => c.name === name)) return alert('客戶名稱已經存在！');
@@ -1711,7 +1669,6 @@
             document.getElementById('stTotalNoTax').innerText = `NT$ ${totalNoTax.toFixed(2)}`; document.getElementById('stTotalTax').innerText = `NT$ ${totalTax}`; document.getElementById('stTotalTaxable').innerText = `NT$ ${totalNoTax.toFixed(2)}`; document.getElementById('stGrandTotal').innerText = `NT$ ${grandTotal.toLocaleString()}`;
         }
         
-        // 🌟 新增：客戶對帳單列印後自動詢問是否標記已請款
         function printStatement() { 
             let contents = document.getElementById('statementPrintArea').innerHTML; 
             let printArea = document.getElementById('globalStatementPrint');
