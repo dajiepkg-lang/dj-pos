@@ -702,8 +702,7 @@
             }
         }
 
-        // 🔥 強悍解析版 loadFromCloud
-        async function loadFromCloud() {
+       async function loadFromCloud() {
             if (!API_URL) return alert("請先在程式碼中設定 API_URL！");
             if (!confirm('確定要從雲端載入資料嗎？這將會覆蓋你目前畫面上的所有紀錄！')) return;
             const btn = document.getElementById('btn-load');
@@ -741,6 +740,31 @@
                                 }
                                 return JSON.stringify(val);
                             };
+
+                            if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', forceCleanStringify(data.fullBackup.pos_categories));
+                            if (data.fullBackup.pos_products) localStorage.setItem('pos_products', forceCleanStringify(data.fullBackup.pos_products));
+                            if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', forceCleanStringify(data.fullBackup.pos_customers));
+                            if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', forceCleanStringify(data.fullBackup.pos_orders));
+                            if (data.fullBackup.cf_single_v11) localStorage.setItem('cf_single_v11', forceCleanStringify(data.fullBackup.cf_single_v11));
+                            if (data.fullBackup.cf_recurring_v11) localStorage.setItem('cf_recurring_v11', forceCleanStringify(data.fullBackup.cf_recurring_v11));
+                        }
+                        
+                        alert('☁️ 已成功從雲端載入資料！'); 
+                        location.reload(); 
+                    } else {
+                        alert('載入失敗：' + (data.message || '未知錯誤'));
+                    }
+                } catch(e) {
+                    console.error("伺服器回傳內容:", text);
+                    throw new Error("解析雲端資料失敗：" + e.message);
+                }
+            } catch (error) { 
+                alert('連線失敗：\n' + error.message); 
+                console.error(error);
+            } finally { 
+                btn.innerText = originalText; btn.disabled = false; 
+            }
+        }
 
                             if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', forceCleanStringify(data.fullBackup.pos_categories));
                             if (data.fullBackup.pos_products) localStorage.setItem('pos_products', forceCleanStringify(data.fullBackup.pos_products));
