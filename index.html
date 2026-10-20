@@ -123,7 +123,7 @@
                     </div>
                     <button onclick="setReportPeriod('closing')" class="bg-indigo-100 text-indigo-800 hover:bg-indigo-200 text-xs px-2.5 py-1.5 rounded font-bold border border-indigo-300">⚡ 本期關帳 (上月26~本月25)</button>
                     <button onclick="setReportPeriod('natural')" class="bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs px-2.5 py-1.5 rounded font-bold border">📅 當自然月 (1~月底)</button>
-                    <button onclick="forceRecalculateAllProfits()" class="bg-red-100 text-red-800 hover:bg-red-200 text-xs px-2.5 py-1.5 rounded font-bold border border-red-300 shadow">🔄 點我強制校正歷史毛利</button>
+                    <button onclick="openRecalcModal()" class="bg-red-100 text-red-800 hover:bg-red-200 text-xs px-2.5 py-1.5 rounded font-bold border border-red-300 shadow">🔄 區間校正歷史毛利</button>
                 </div>
                 <button onclick="open401Modal()" class="bg-emerald-700 text-white text-sm px-4 py-2.5 rounded-lg font-bold hover:bg-emerald-800 shadow">
                     📑 匯出 401 營業稅申報總月報表
@@ -608,6 +608,23 @@
         </div>
     </div>
 
+    <!-- ⚠️ 區間校正歷史毛利 Modal -->
+    <div id="recalcProfitModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4 no-print">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <button onclick="closeRecalcModal()" class="absolute top-4 right-4 text-gray-400 font-bold">✕</button>
+            <h2 class="text-xl font-bold mb-3 border-b pb-2 text-red-600">⚠️ 區間校正歷史毛利</h2>
+            <p class="text-xs text-gray-500 mb-4">原物料成本會隨時間波動。請指定您要套用「目前最新進價成本」的發票區間。<br>未在區間內的發票將維持結算當時的毛利，不受影響。</p>
+            <div class="space-y-3 mb-6">
+                <div><label class="block text-xs font-bold mb-1">起始日期</label><input type="date" id="recalcStart" class="w-full border rounded p-2 text-sm"></div>
+                <div><label class="block text-xs font-bold mb-1">結束日期</label><input type="date" id="recalcEnd" class="w-full border rounded p-2 text-sm"></div>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeRecalcModal()" class="bg-gray-300 px-4 py-2 rounded font-bold">取消</button>
+                <button onclick="confirmRecalculateProfits()" class="bg-red-600 text-white px-5 py-2 rounded font-bold shadow hover:bg-red-700">執行校正</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbx9nEBX5CD96TKWb1pP0ypVPsCK_YCZKIGI9snfmrTOcDhdbg-k_XoAjf0Ws_m4Eej96g/exec"; 
 
@@ -666,10 +683,23 @@
 
             try {
                 const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
-                const result = await response.json();
-                if (result.status === 'success') alert('☁️ 數據已成功同步！');
-                else alert('同步失敗：' + result.message);
-            } catch (error) { alert('網路連線錯誤或 API 設定有誤。'); } finally { btn.innerText = originalText; btn.disabled = false; }
+                if (!response.ok) throw new Error(`HTTP 錯誤狀態碼: ${response.status}`);
+                
+                const text = await response.text();
+                try {
+                    const result = JSON.parse(text);
+                    if (result.status === 'success') alert('☁️ 數據已成功同步！');
+                    else alert('同步失敗：' + result.message);
+                } catch(e) {
+                    console.error("伺服器回傳內容:", text);
+                    throw new Error("回傳格式錯誤，請確認 Apps Script 權限是否設為「所有人」。");
+                }
+            } catch (error) { 
+                alert('連線失敗：\n' + error.message + '\n\n💡 請按 F12 打開開發者工具查看詳細錯誤。'); 
+                console.error(error);
+            } finally { 
+                btn.innerText = originalText; btn.disabled = false; 
+            }
         }
 
         async function loadFromCloud() {
@@ -682,24 +712,36 @@
             try {
                 const noCacheUrl = API_URL + "?t=" + new Date().getTime();
                 const response = await fetch(noCacheUrl, { method: 'GET', redirect: 'follow', headers: { 'Accept': 'application/json' } });
-                const data = await response.json();
+                if (!response.ok) throw new Error(`HTTP 錯誤狀態碼: ${response.status}`);
                 
-                if (data.status === 'success') {
-                    if (data.singleItems) localStorage.setItem('cf_single_v11', JSON.stringify(data.singleItems));
-                    if (data.recurringItems) localStorage.setItem('cf_recurring_v11', JSON.stringify(data.recurringItems));
-                    if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
-                    if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
-                    if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
-                    if (data.fullBackup) {
-                        const safeStringify = (val) => typeof val === 'string' ? val : JSON.stringify(val);
-                        if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', safeStringify(data.fullBackup.pos_categories));
-                        if (data.fullBackup.pos_products) localStorage.setItem('pos_products', safeStringify(data.fullBackup.pos_products));
-                        if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', safeStringify(data.fullBackup.pos_customers));
-                        if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', safeStringify(data.fullBackup.pos_orders));
-                    }
-                    alert('☁️ 已成功從雲端載入資料！'); location.reload();
-                } else alert('載入失敗：' + data.message);
-            } catch (error) { alert('網路連線錯誤，詳細原因：\n' + error.name + '\n' + error.message); } finally { btn.innerText = originalText; btn.disabled = false; }
+                const text = await response.text();
+                try {
+                    const data = JSON.parse(text);
+                    if (data.status === 'success') {
+                        if (data.singleItems) localStorage.setItem('cf_single_v11', JSON.stringify(data.singleItems));
+                        if (data.recurringItems) localStorage.setItem('cf_recurring_v11', JSON.stringify(data.recurringItems));
+                        if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
+                        if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
+                        if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
+                        if (data.fullBackup) {
+                            const safeStringify = (val) => typeof val === 'string' ? val : JSON.stringify(val);
+                            if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', safeStringify(data.fullBackup.pos_categories));
+                            if (data.fullBackup.pos_products) localStorage.setItem('pos_products', safeStringify(data.fullBackup.pos_products));
+                            if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', safeStringify(data.fullBackup.pos_customers));
+                            if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', safeStringify(data.fullBackup.pos_orders));
+                        }
+                        alert('☁️ 已成功從雲端載入資料！'); location.reload();
+                    } else alert('載入失敗：' + data.message);
+                } catch(e) {
+                    console.error("伺服器回傳內容:", text);
+                    throw new Error("回傳格式錯誤，請確認 Apps Script 權限是否設為「所有人」。");
+                }
+            } catch (error) { 
+                alert('連線失敗：\n' + error.message + '\n\n💡 請按 F12 打開開發者工具查看詳細錯誤。'); 
+                console.error(error);
+            } finally { 
+                btn.innerText = originalText; btn.disabled = false; 
+            }
         }
 
         function setReportPeriod(type) {
@@ -917,16 +959,59 @@
             alert('🗑️ 刪除成功！資金預估表已同步更新。');
         }
 
-        function forceRecalculateAllProfits() {
-            let orders = JSON.parse(localStorage.getItem('pos_orders')) || []; let products = JSON.parse(localStorage.getItem('pos_products')) || []; let updatedCount = 0;
+        // --- ⚠️ 新增：開啟/關閉 區間校正歷史毛利 Modal ---
+        function openRecalcModal() { 
+            document.getElementById('recalcStart').value = document.getElementById('reportStartDate').value; 
+            document.getElementById('recalcEnd').value = document.getElementById('reportEndDate').value; 
+            document.getElementById('recalcProfitModal').classList.remove('hidden'); 
+        }
+        function closeRecalcModal() { 
+            document.getElementById('recalcProfitModal').classList.add('hidden'); 
+        }
+
+        // --- ⚠️ 新增：執行區間校正 ---
+        function confirmRecalculateProfits() {
+            const start = document.getElementById('recalcStart').value;
+            const end = document.getElementById('recalcEnd').value;
+            if (!start || !end) return alert('請選擇完整的起始與結束日期！');
+
+            if (!confirm(`確定要將【${start}】至【${end}】期間的所有發票單據，\n套用「目前最新」的商品成本來重新計算毛利嗎？`)) return;
+
+            let orders = JSON.parse(localStorage.getItem('pos_orders')) || []; 
+            let products = JSON.parse(localStorage.getItem('pos_products')) || []; 
+            let updatedCount = 0;
+
             orders.forEach(order => {
-                let newTotalCost = 0;
-                if(order.items) {
-                    order.items.forEach(item => { let prod = products.find(p => p.name === item.name); let correctCost = prod ? (parseFloat(prod.cost) || 0) : 0; item.cost = correctCost; item.subCost = item.qty * correctCost; newTotalCost += item.subCost; });
-                    order.totalProfit = (order.subTotalNoTax || 0) - newTotalCost; updatedCount++;
+                if (order.saleDate >= start && order.saleDate <= end) {
+                    let newTotalCost = 0;
+                    let orderNeedsUpdate = false;
+                    if(order.items) {
+                        order.items.forEach(item => { 
+                            let prod = products.find(p => p.name === item.name); 
+                            let correctCost = prod ? (parseFloat(prod.cost) || 0) : (item.cost || 0); 
+                            if (item.cost !== correctCost) {
+                                item.cost = correctCost; 
+                                item.subCost = item.qty * correctCost; 
+                                orderNeedsUpdate = true;
+                            }
+                            newTotalCost += (item.subCost || 0); 
+                        });
+                        if (orderNeedsUpdate) {
+                            order.totalProfit = (order.subTotalNoTax || 0) - newTotalCost; 
+                            updatedCount++;
+                        }
+                    }
                 }
             });
-            if (updatedCount > 0) { localStorage.setItem('pos_orders', JSON.stringify(orders)); loadPOSReports(); alert(`✅ 歷史發票毛利已全部重新校正！`); }
+
+            if (updatedCount > 0) { 
+                localStorage.setItem('pos_orders', JSON.stringify(orders)); 
+                loadPOSReports(); 
+                alert(`✅ 成功校正了 ${updatedCount} 筆發票單據的毛利！`); 
+            } else {
+                alert(`該區間內沒有需要更新成本的單據，或成本並無變動。`);
+            }
+            closeRecalcModal();
         }
 
         function extendInvoiceDate(invNum) {
