@@ -394,7 +394,7 @@
                     </select>
                 </div>
                 
-                <!-- 🌟 新增的兩個篩選條件 🌟 -->
+                <!-- 🌟 狀態篩選器 -->
                 <div class="flex items-center space-x-2">
                     <label class="text-xs font-bold text-gray-600">交發票狀態</label>
                     <select id="orderFilterPrinted" class="border rounded p-1.5 text-sm bg-white" onchange="renderOrderList()">
@@ -626,7 +626,7 @@
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbw2vGzfFyo-mNRSqWOG5fxRPnx8jzTG4jxeS2k8dMoA6mataOzCDD8E4rN4io2u7Y5mOQ/exec"; 
+        const API_URL = "https://script.google.com/macros/s/AKfycbx9nEBX5CD96TKWb1pP0ypVPsCK_YCZKIGI9snfmrTOcDhdbg-k_XoAjf0Ws_m4Eej96g/exec"; 
 
         function getLocalDateString(d) {
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -702,6 +702,7 @@
             }
         }
 
+        // 🔥 強悍解析版 loadFromCloud
         async function loadFromCloud() {
             if (!API_URL) return alert("請先在程式碼中設定 API_URL！");
             if (!confirm('確定要從雲端載入資料嗎？這將會覆蓋你目前畫面上的所有紀錄！')) return;
@@ -718,20 +719,40 @@
                 try {
                     const data = JSON.parse(text);
                     if (data.status === 'success') {
-                        if (data.singleItems) localStorage.setItem('cf_single_v11', JSON.stringify(data.singleItems));
-                        if (data.recurringItems) localStorage.setItem('cf_recurring_v11', JSON.stringify(data.recurringItems));
+                        // 1. 處理基礎現金流水位與設定
+                        if (data.singleItems) localStorage.setItem('cf_single_v11', typeof data.singleItems === 'string' ? data.singleItems : JSON.stringify(data.singleItems));
+                        if (data.recurringItems) localStorage.setItem('cf_recurring_v11', typeof data.recurringItems === 'string' ? data.recurringItems : JSON.stringify(data.recurringItems));
                         if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
                         if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
                         if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
+                        
+                        // 2. 🔥 強悍解析 fullBackup (解決發票與商品無法更新的問題)
                         if (data.fullBackup) {
-                            const safeStringify = (val) => typeof val === 'string' ? val : JSON.stringify(val);
-                            if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', safeStringify(data.fullBackup.pos_categories));
-                            if (data.fullBackup.pos_products) localStorage.setItem('pos_products', safeStringify(data.fullBackup.pos_products));
-                            if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', safeStringify(data.fullBackup.pos_customers));
-                            if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', safeStringify(data.fullBackup.pos_orders));
+                            const forceCleanStringify = (val) => {
+                                if (!val) return "[]";
+                                if (typeof val === 'string') {
+                                    try {
+                                        let parsedOnce = JSON.parse(val);
+                                        if (typeof parsedOnce === 'string') return parsedOnce; 
+                                        return val; 
+                                    } catch(e) {
+                                        return val; 
+                                    }
+                                }
+                                return JSON.stringify(val);
+                            };
+
+                            if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', forceCleanStringify(data.fullBackup.pos_categories));
+                            if (data.fullBackup.pos_products) localStorage.setItem('pos_products', forceCleanStringify(data.fullBackup.pos_products));
+                            if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', forceCleanStringify(data.fullBackup.pos_customers));
+                            if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', forceCleanStringify(data.fullBackup.pos_orders));
                         }
-                        alert('☁️ 已成功從雲端載入資料！'); location.reload();
-                    } else alert('載入失敗：' + data.message);
+                        
+                        alert('☁️ 已成功從雲端載入資料！'); 
+                        location.reload(); 
+                    } else {
+                        alert('載入失敗：' + data.message);
+                    }
                 } catch(e) {
                     console.error("伺服器回傳內容:", text);
                     throw new Error("回傳格式錯誤，請確認 Apps Script 權限是否設為「所有人」。");
@@ -1326,8 +1347,13 @@
                 let passStore = filterStore === 'all' || o.storeName === filterStore; 
                 
                 // 新增篩選邏輯
-                let passPrinted = filterPrinted === 'all' || (filterPrinted === 'printed' ? o.isPrinted : !o.isPrinted);
-                let passBilled = filterBilled === 'all' || (filterBilled === 'billed' ? o.isBilled : !o.isBilled);
+                let passPrinted = true;
+                if (filterPrinted === 'printed') passPrinted = o.isPrinted;
+                if (filterPrinted === 'unprinted') passPrinted = !o.isPrinted;
+
+                let passBilled = true;
+                if (filterBilled === 'billed') passBilled = o.isBilled;
+                if (filterBilled === 'unbilled') passBilled = !o.isBilled;
 
                 return passStart && passEnd && passStore && passPrinted && passBilled; 
             });
