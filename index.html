@@ -669,33 +669,34 @@
             const originalText = btn.innerText;
             btn.innerText = "⏳ 同步中..."; btn.disabled = true;
 
+            const backupData = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                let k = localStorage.key(i);
+                backupData[k] = localStorage.getItem(k);
+            }
+
             const payload = {
-                config: { singleItems, recurringItems, anchorDate, anchorBank, anchorCash },
-                fullBackup: {
-                    pos_categories: localStorage.getItem('pos_categories'),
-                    pos_products: localStorage.getItem('pos_products'),
-                    pos_customers: localStorage.getItem('pos_customers'),
-                    pos_orders: localStorage.getItem('pos_orders'),
-                    cf_single_v11: localStorage.getItem('cf_single_v11'),
-                    cf_recurring_v11: localStorage.getItem('cf_recurring_v11')
-                }
+                status: "success",
+                localBackup: backupData
             };
 
             try {
-                const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+                const response = await fetch(API_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify(payload), 
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+                });
                 if (!response.ok) throw new Error(`HTTP 錯誤狀態碼: ${response.status}`);
                 
                 const text = await response.text();
-                try {
-                    const result = JSON.parse(text);
-                    if (result.status === 'success') alert('☁️ 數據已成功同步！');
-                    else alert('同步失敗：' + result.message);
-                } catch(e) {
-                    console.error("伺服器回傳內容:", text);
-                    throw new Error("回傳格式錯誤，請確認 Apps Script 權限是否設為「所有人」。");
+                const result = JSON.parse(text);
+                if (result.status === 'success') {
+                    alert('☁️ JSON 雲端備份成功！');
+                } else {
+                    alert('同步失敗：' + result.message);
                 }
             } catch (error) { 
-                alert('連線失敗：\n' + error.message + '\n\n💡 請按 F12 打開開發者工具查看詳細錯誤。'); 
+                alert('連線失敗：\n' + error.message); 
                 console.error(error);
             } finally { 
                 btn.innerText = originalText; btn.disabled = false; 
@@ -714,50 +715,19 @@
                 const response = await fetch(noCacheUrl, { method: 'GET', redirect: 'follow', headers: { 'Accept': 'application/json' } });
                 if (!response.ok) throw new Error(`HTTP 錯誤狀態碼: ${response.status}`);
                 
-                const text = await response.text();
-                try {
-                    const data = JSON.parse(text);
-                    if (data.status === 'success') {
-                        if (data.singleItems) localStorage.setItem('cf_single_v11', typeof data.singleItems === 'string' ? data.singleItems : JSON.stringify(data.singleItems));
-                        if (data.recurringItems) localStorage.setItem('cf_recurring_v11', typeof data.recurringItems === 'string' ? data.recurringItems : JSON.stringify(data.recurringItems));
-                        if (data.anchorDate) localStorage.setItem('cf_anchor_date_v11', data.anchorDate);
-                        if (data.anchorBank !== undefined) localStorage.setItem('cf_anchor_bank_v11', data.anchorBank);
-                        if (data.anchorCash !== undefined) localStorage.setItem('cf_anchor_cash_v11', data.anchorCash);
-                        
-                        if (data.fullBackup) {
-                            const forceCleanStringify = (val) => {
-                                if (!val) return "[]";
-                                if (typeof val === 'string') {
-                                    try {
-                                        let parsedOnce = JSON.parse(val);
-                                        if (typeof parsedOnce === 'string') return parsedOnce; 
-                                        return val; 
-                                    } catch(e) {
-                                        return val; 
-                                    }
-                                }
-                                return JSON.stringify(val);
-                            };
+                const data = await response.json();
+                let targetData = data.localBackup ? data.localBackup : data;
 
-                            if (data.fullBackup.pos_categories) localStorage.setItem('pos_categories', forceCleanStringify(data.fullBackup.pos_categories));
-                            if (data.fullBackup.pos_products) localStorage.setItem('pos_products', forceCleanStringify(data.fullBackup.pos_products));
-                            if (data.fullBackup.pos_customers) localStorage.setItem('pos_customers', forceCleanStringify(data.fullBackup.pos_customers));
-                            if (data.fullBackup.pos_orders) localStorage.setItem('pos_orders', forceCleanStringify(data.fullBackup.pos_orders));
-                            if (data.fullBackup.cf_single_v11) localStorage.setItem('cf_single_v11', forceCleanStringify(data.fullBackup.cf_single_v11));
-                            if (data.fullBackup.cf_recurring_v11) localStorage.setItem('cf_recurring_v11', forceCleanStringify(data.fullBackup.cf_recurring_v11));
-                        }
-                        
-                        alert('☁️ 已成功從雲端載入資料！'); 
-                        location.reload(); 
-                    } else {
-                        alert('載入失敗：' + (data.message || '未知錯誤'));
+                for (let k in targetData) {
+                    if (k !== 'status') {
+                        localStorage.setItem(k, targetData[k]);
                     }
-                } catch(e) {
-                    console.error("伺服器回傳內容:", text);
-                    throw new Error("解析雲端資料失敗：" + e.message);
                 }
+                
+                alert('☁️ 已成功從雲端載入 JSON 資料！'); 
+                location.reload(); 
             } catch (error) { 
-                alert('連線失敗：\n' + error.message); 
+                alert('載入失敗：\n' + error.message); 
                 console.error(error);
             } finally { 
                 btn.innerText = originalText; btn.disabled = false; 
