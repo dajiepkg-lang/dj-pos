@@ -669,6 +669,7 @@
             const originalText = btn.innerText;
             btn.innerText = "⏳ 同步中..."; btn.disabled = true;
 
+            // 乾淨俐落地把整個 localStorage 打包成 JSON 字串
             const backupData = {};
             for (let i = 0; i < localStorage.length; i++) {
                 let k = localStorage.key(i);
@@ -677,6 +678,7 @@
             const jsonString = JSON.stringify(backupData);
 
             try {
+                // 直接將這包字串 POST 給 Google
                 const response = await fetch(API_URL, { 
                     method: 'POST', 
                     body: jsonString, 
@@ -684,8 +686,7 @@
                 });
                 if (!response.ok) throw new Error(`HTTP 錯誤狀態碼: ${response.status}`);
                 
-                const text = await response.text();
-                const result = JSON.parse(text);
+                const result = await response.json();
                 if (result.status === 'success') {
                     alert('☁️ 雲端備份成功！');
                 } else {
@@ -693,7 +694,6 @@
                 }
             } catch (error) { 
                 alert('連線失敗：\n' + error.message); 
-                console.error(error);
             } finally { 
                 btn.innerText = originalText; btn.disabled = false; 
             }
@@ -708,20 +708,23 @@
 
             try {
                 const noCacheUrl = API_URL + "?t=" + new Date().getTime();
+                // 抓取後端自動拼好的完整 JSON
                 const response = await fetch(noCacheUrl, { method: 'GET', redirect: 'follow' });
                 if (!response.ok) throw new Error(`HTTP 錯誤狀態碼: ${response.status}`);
                 
                 const data = await response.json();
 
+                // 粗暴且有效地還原所有資料
                 for (let k in data) {
-                    localStorage.setItem(k, data[k]);
+                    if(k !== 'status' && k !== 'message') {
+                        localStorage.setItem(k, data[k]);
+                    }
                 }
                 
                 alert('☁️ 已成功從雲端載入資料！'); 
                 location.reload(); 
             } catch (error) { 
                 alert('載入失敗：\n' + error.message); 
-                console.error(error);
             } finally { 
                 btn.innerText = originalText; btn.disabled = false; 
             }
