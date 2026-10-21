@@ -674,16 +674,12 @@
                 let k = localStorage.key(i);
                 backupData[k] = localStorage.getItem(k);
             }
-
-            const payload = {
-                status: "success",
-                localBackup: backupData
-            };
+            const jsonString = JSON.stringify(backupData);
 
             try {
                 const response = await fetch(API_URL, { 
                     method: 'POST', 
-                    body: JSON.stringify(payload), 
+                    body: jsonString, 
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
                 });
                 if (!response.ok) throw new Error(`HTTP 錯誤狀態碼: ${response.status}`);
@@ -691,7 +687,7 @@
                 const text = await response.text();
                 const result = JSON.parse(text);
                 if (result.status === 'success') {
-                    alert('☁️ JSON 雲端備份成功！');
+                    alert('☁️ 雲端備份成功！');
                 } else {
                     alert('同步失敗：' + result.message);
                 }
@@ -712,19 +708,16 @@
 
             try {
                 const noCacheUrl = API_URL + "?t=" + new Date().getTime();
-                const response = await fetch(noCacheUrl, { method: 'GET', redirect: 'follow', headers: { 'Accept': 'application/json' } });
+                const response = await fetch(noCacheUrl, { method: 'GET', redirect: 'follow' });
                 if (!response.ok) throw new Error(`HTTP 錯誤狀態碼: ${response.status}`);
                 
                 const data = await response.json();
-                let targetData = data.localBackup ? data.localBackup : data;
 
-                for (let k in targetData) {
-                    if (k !== 'status') {
-                        localStorage.setItem(k, targetData[k]);
-                    }
+                for (let k in data) {
+                    localStorage.setItem(k, data[k]);
                 }
                 
-                alert('☁️ 已成功從雲端載入 JSON 資料！'); 
+                alert('☁️ 已成功從雲端載入資料！'); 
                 location.reload(); 
             } catch (error) { 
                 alert('載入失敗：\n' + error.message); 
